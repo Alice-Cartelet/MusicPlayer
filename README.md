@@ -1,9 +1,9 @@
-# 🎵 本地音乐播放器（Qt C++）
+# 🎵 极简本地桌面歌词音乐播放器（Qt C++）
 ![C++](https://img.shields.io/badge/C++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white)
 ![Qt](https://img.shields.io/badge/Qt-%23217346.svg?style=for-the-badge&logo=Qt&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)
 
-基于 Qt 6 开发的简洁本地音乐播放器，透明，功能极简，只有桌面歌词显示功能。
+基于 Qt 6 开发的简洁本地音乐播放器，有半透明磨砂效果，功能极简，只有附加桌面歌词显示功能。
 <img width="1204" height="993" alt="屏幕截图 2026-05-18 200635" src="https://github.com/user-attachments/assets/304b7efd-e0f2-4fa2-bec6-31a9a28565a7" />
 
 ---
