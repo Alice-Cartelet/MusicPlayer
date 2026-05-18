@@ -143,27 +143,6 @@ song.mp3 - .lrc
 
 ---
 
-## 📂 项目结构 (Project Structure)
-
-```text
-MusicPlayer/
-├── main.cpp
-├── mainwindow.cpp
-├── mainwindow.h
-├── playlist.cpp
-├── playlist.h
-├── lrcxparser.cpp
-├── lrcxparser.h
-├── lyricsoverlay.cpp
-├── lyricsoverlay.h
-├── settingsdialog.cpp
-├── settingsdialog.h
-├── resources.qrc
-└── MusicPlayer.pro
-```
-
----
-
 ## 🔧 支持的音频格式 (Supported Formats)
 
 * MP3
@@ -178,29 +157,34 @@ MusicPlayer/
 ---
 
 ## 📄 许可证 (License)
-
-* 本项目基于 Qt 开发，遵循 LGPL v3 协议。
-* 项目本体采用 MIT License 开源。
-
-```text
+* 使用Qt开发，遵循LGPL v3许可。
+* 并遵循本项目采用 MIT License 协议。
+```
+MIT 许可证
+版权所有 (c) 2026 Alice-Cartelet
+特此免费授予任何获得本软件及相关文档文件（以下简称“软件”）副本的人员不受限制地处理本软件
+的权利，包括但不限于使用、复制、修改、合并、发布、分发、再许可和/或出售本软件副本的权利，
+并允许向其提供本软件的人员这样做，但须符合以下条件：
+上述版权声明和本许可声明应包含在本软件的所有副本或实质性部分中。
+本软件按“原样”提供，不提供任何形式的明示或暗示的保证，包括但不限于对适销性、特定用途适用
+性和非侵权性的保证。在任何情况下，作者或版权持有人均不对因本软件或本软件的使用或其他交易
+而产生、引起或与之相关的任何索赔、损害或其他责任负责，无论是在合同诉讼、侵权行为还是其他
+方面。
 MIT License
-
-Copyright (c) 2026
-
+Copyright (c) 2026 Alice-Cartelet
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software.
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
-
----
-
-## ❤️ 致谢 (Acknowledgements)
-
-* Qt Framework
-* Qt Multimedia
-* 所有测试与使用本项目的用户
-
----
-
