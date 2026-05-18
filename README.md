@@ -1,4 +1,4 @@
-# 🎵 极简本地桌面歌词音乐播放器（Qt C++）
+# 🎵 极简本地桌面歌词音乐播放器
 ![C++](https://img.shields.io/badge/C++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white)
 ![Qt](https://img.shields.io/badge/Qt-%23217346.svg?style=for-the-badge&logo=Qt&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)
