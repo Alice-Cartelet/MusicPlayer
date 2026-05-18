@@ -1,0 +1,35 @@
+#include <windows.h>
+IDI_ICON1 ICON "app.ico"
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,0
+ PRODUCTVERSION 1,0,0,0
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080404B0"
+        BEGIN
+            VALUE "CompanyName",      "AliceCartelet"
+            VALUE "FileDescription",  "Music Player"
+            VALUE "FileVersion",      "1.0.0"
+            VALUE "InternalName",     "MusicPlayer"
+            VALUE "LegalCopyright",   "Copyright (C) 2026 AliceCartelet"
+            VALUE "OriginalFilename", "MusicPlayer.exe"
+            VALUE "ProductName",      "MusicPlayer"
+            VALUE "ProductVersion",   "1.0.0"
+            VALUE "Publisher",        "AliceCartelet"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x804, 1200
+    END
+END
