@@ -70,8 +70,8 @@
 ## 📸 界面展示 (Screenshots)
 
 |       主播放界面      |      修改界面      |
-| <img width="1204" height="993" alt="" src="https://github.com/user-attachments/assets/304b7efd-e0f2-4fa2-bec6-31a9a28565a7" /><img width="1203" height="993" alt="" src="https://github.com/user-attachments/assets/cb8d241f-7d03-420b-a9a2-12a0fe993c73" />
- |  |
+| <img width="1204" height="993" alt="" src="https://github.com/user-attachments/assets/304b7efd-e0f2-4fa2-bec6-31a9a28565a7" />
+ | <img width="1203" height="993" alt="" src="https://github.com/user-attachments/assets/cb8d241f-7d03-420b-a9a2-12a0fe993c73" /> |
 | *(播放器主界面截图)* | *(修改界面)* |
 
 ---
