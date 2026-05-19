@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     app.setApplicationName("本地音乐播放器");
     app.setOrganizationName("MusicPlayer");
-    app.setApplicationVersion("1.0");
+    app.setApplicationVersion("1.1");
     const QString serverName = "LocalMusicPlayer_Unique_Instance";
     QLocalSocket socket;
     socket.connectToServer(serverName);

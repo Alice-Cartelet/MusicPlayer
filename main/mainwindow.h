@@ -12,6 +12,8 @@
 #include <QKeyEvent>
 #include <QResizeEvent>
 #include <QMouseEvent>
+#include <QSystemTrayIcon>
+#include <QMenu>
 #include "playlist.h"
 #include "lyricsoverlay.h"
 #include "settingsdialog.h"
@@ -45,6 +47,8 @@ private slots:
     void onOpenSettings();
     void onMusicDirChanged(const QString &dir);
     void onLyricsDirChanged(const QString &dir);
+    void onTogglePin();
+    void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
 private:
     void setupPlayer();
     void setupUI();
@@ -73,7 +77,10 @@ private:
     QWidget    *m_titleBar   = nullptr;
     QLabel     *m_lblWinTitle = nullptr;
     QPushButton *m_btnMin    = nullptr;
+    QPushButton *m_btnPin    = nullptr;
     QPushButton *m_btnClose  = nullptr;
+    bool m_alwaysOnTop = false;
+    QTimer *m_autoSaveTimer  = nullptr;
     bool   m_dragging    = false;
     QPoint m_dragOffset;
     CoverLabel *m_lblCover = nullptr;
@@ -91,5 +98,8 @@ private:
     QPushButton *m_btnShuffle = nullptr;
     LyricsOverlay *m_lyricsOverlay = nullptr;
     SettingsDialog *m_settingsDlg = nullptr;
+    QSystemTrayIcon *m_trayIcon = nullptr;
+    QMenu           *m_trayMenu = nullptr;
+    bool m_minimizeToTray = false;
 }
 ;

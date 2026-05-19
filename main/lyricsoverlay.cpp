@@ -5,6 +5,8 @@
 #include <QScreen>
 #include <QApplication>
 #include <QFontMetricsF>
+#include <QSettings>
+#include <QWindow>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <dwmapi.h>
@@ -25,11 +27,11 @@ static QStringList splitUnicodeChars(const QString &s)
     }
     return out;
 }
-static const QColor kColorSung ("#E63248");
-static const QColor kColorUnsug("#F1DDDF");
-static constexpr int kFontPt = 28;
-static constexpr int kWinW   = 1000;
-static constexpr int kWinH   = 72;
+static constexpr int kFontPt  = 28;
+static constexpr int kWinW    = 1000;
+static constexpr int kWinH    = 72;
+static constexpr int kPadX    = 80;
+static constexpr int kMinWinW = 300;
 static float easeOut(float t) {
     float r = 1.f - t;
     return 1.f - r*r*r;
@@ -78,10 +80,37 @@ LyricsOverlay::LyricsOverlay(QWidget *parent)
             if (t >= 1.f)
                 m_animTimer->stop();
         }
-        );
+    );
+    m_hoverCheckTimer = new QTimer(this);
+    m_hoverCheckTimer->setInterval(30);
+    connect(
+        m_hoverCheckTimer,
+        &QTimer::timeout,
+        this,
+        [this]() {
+            QPoint globalPos = QCursor::pos();
+            QRect r = geometry();
+            if (!r.contains(globalPos)) {
+                setAttribute(Qt::WA_TransparentForMouseEvents,false);
+                setWindowOpacity(1.0);
+                m_hoverCheckTimer->stop();
+            }
+        }
+    );
 }
 void LyricsOverlay::showEvent(QShowEvent *e) {
     QWidget::showEvent(e);
+    QSettings s("MusicPlayer", "MusicPlayer");
+    if (s.contains("lyricsAnchorCenterX")) {
+        m_anchorCenterX = s.value("lyricsAnchorCenterX").toInt();
+        m_anchorY       = s.value("lyricsAnchorY").toInt();
+        move(m_anchorCenterX - width() / 2, m_anchorY);
+    } else if (QScreen *scr = QApplication::primaryScreen()) {
+        QRect g = scr->availableGeometry();
+        m_anchorCenterX = g.center().x();
+        m_anchorY = g.bottom() - kWinH - 90;
+        move(m_anchorCenterX - width() / 2, m_anchorY);
+    }
 #ifdef Q_OS_WIN
     HWND hwnd =
         reinterpret_cast<HWND>(winId());
@@ -310,18 +339,18 @@ void LyricsOverlay::paintEvent(QPaintEvent *) {
             radius
             );
 
-            bgGradient.setColorAt(
-                0.0,
-                QColor(170,170,170,100)
-                );
-            bgGradient.setColorAt(
-                0.3,
-                QColor(170,170,170,40)
-                );
-            bgGradient.setColorAt(
-                1.0,
-                Qt::transparent
-                );
+        bgGradient.setColorAt(
+            0.0,
+            QColor(170,170,170,100)
+            );
+        bgGradient.setColorAt(
+            0.3,
+            QColor(170,170,170,40)
+            );
+        bgGradient.setColorAt(
+            1.0,
+            Qt::transparent
+            );
         p.setPen(Qt::NoPen);
         p.setBrush(bgGradient);
         p.drawEllipse(
@@ -342,7 +371,7 @@ void LyricsOverlay::paintEvent(QPaintEvent *) {
     p.translate(0, 1);
     p.drawPath(fullPath);
     p.restore();
-    p.setBrush(kColorUnsug);
+    p.setBrush(m_colorUnsang);
     p.drawPath(fullPath);
     if (m_litPx > 0.f) {
         p.save();
@@ -354,7 +383,7 @@ void LyricsOverlay::paintEvent(QPaintEvent *) {
                 (float)height()
                 )
             );
-        QColor sung = kColorSung;
+        QColor sung = m_colorSung;
         sung.setAlphaF(m_lineAlpha);
         p.setBrush(sung);
         p.drawPath(fullPath);
@@ -393,9 +422,44 @@ void LyricsOverlay::mouseMoveEvent(
 #endif
     }
 }
-void LyricsOverlay::mouseReleaseEvent(
-    QMouseEvent *) {
+void LyricsOverlay::resizeToText(const QString &text) {
+    QFontMetricsF fmf(m_font);
+    int newW = qMax(kMinWinW, (int)fmf.horizontalAdvance(text) + kPadX * 2);
+    if (newW == width()) return;
+    if (m_anchorCenterX < 0) {
+        m_anchorCenterX = geometry().center().x();
+        m_anchorY = geometry().top();
+    }
+    resize(newW, kWinH);
+    move(m_anchorCenterX - newW / 2, m_anchorY);
+}
+void LyricsOverlay::setHideOnHover(bool v) {
+    m_hideOnHover = v;
+}
+void LyricsOverlay::setColors(const QString &sung, const QString &unsang) {
+    QColor cs(sung), cu(unsang);
+    if (cs.isValid())  m_colorSung   = cs;
+    if (cu.isValid())  m_colorUnsang = cu;
+    update();
+}
+void LyricsOverlay::enterEvent(QEnterEvent *e) {
+    QWidget::enterEvent(e);
+    if (!m_hideOnHover)
+        return;
+    setWindowOpacity(0.0);
+    setAttribute(Qt::WA_TransparentForMouseEvents,true);
+    m_hoverCheckTimer->start();
+}
+void LyricsOverlay::leaveEvent(QEvent *e) {
+    QWidget::leaveEvent(e);
+}
+void LyricsOverlay::mouseReleaseEvent(QMouseEvent *) {
     m_dragging = false;
+    m_anchorCenterX = geometry().center().x();
+    m_anchorY = geometry().top();
+    QSettings s("MusicPlayer", "MusicPlayer");
+    s.setValue("lyricsAnchorCenterX", m_anchorCenterX);
+    s.setValue("lyricsAnchorY", m_anchorY);
 }
 void LyricsOverlay::setLyricsVisible(
     bool v) {

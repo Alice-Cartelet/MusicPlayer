@@ -16,6 +16,7 @@
 #include <QSettings>
 #include <QFile>
 #include <QTimer>
+#include <QWindow>
 #include <QGraphicsDropShadowEffect>
 #include <QMediaMetaData>
 #include <QImage>
@@ -415,6 +416,7 @@ MainWindow::MainWindow(QWidget *parent)
     setMinimumSize(560,380);
     resize(560,410);
     setWindowTitle("音乐播放器");
+    setWindowIcon(QIcon("app.ico"));
     setupPlayer();
     setupUI();
     applyStyleSheet();
@@ -448,13 +450,65 @@ MainWindow::MainWindow(QWidget *parent)
             m_audio->setVolume(v);
         }
         );
+    connect(m_settingsDlg, &SettingsDialog::minimizeToTrayChanged, this,
+            [this](bool v) { m_minimizeToTray = v; });
+    connect(m_settingsDlg, &SettingsDialog::hideOnHoverChanged, this,
+            [this](bool v) { m_lyricsOverlay->setHideOnHover(v); });
+    connect(m_settingsDlg, &SettingsDialog::lyricColorsChanged, this,
+            [this](const QString &sung, const QString &unsang) {
+                m_lyricsOverlay->setColors(sung, unsang);
+            });
+    // ── 系统托盘 ──
+    m_trayIcon = new QSystemTrayIcon(windowIcon(), this);
+    m_trayMenu = new QMenu(this);
+    m_trayMenu->setStyleSheet(R"(
+QMenu{
+    background:rgba(255,255,255,245);
+    border:1px solid rgba(0,0,0,0.12);
+    padding:6px;
+    border-radius:10px;
+}
+QMenu::item{
+    background:transparent;
+    color:#1a1a2e;
+    padding:8px 24px;
+    border-radius:6px;
+    margin:2px 4px;
+}
+QMenu::item:selected{
+    background:#8b6cff;
+    color:white;
+}
+QMenu::separator{
+    height:1px;
+    background:rgba(0,0,0,0.08);
+    margin:6px 8px;
+}
+)");
+    auto *actShow  = m_trayMenu->addAction("显示");
+    auto *actPlay  = m_trayMenu->addAction("播放/暂停");
+    auto *actNext  = m_trayMenu->addAction("下一首");
+    m_trayMenu->addSeparator();
+    auto *actQuit  = m_trayMenu->addAction("退出");
+    m_trayIcon->setContextMenu(m_trayMenu);
+    m_trayIcon->setToolTip("音乐播放器");
+    m_trayIcon->show();
+    connect(actShow,  &QAction::triggered, this, [this]{ showNormal(); raise(); activateWindow(); });
+    connect(actPlay,  &QAction::triggered, this, &MainWindow::onPlayPause);
+    connect(actNext,  &QAction::triggered, this, &MainWindow::onNext);
+    connect(actQuit,  &QAction::triggered, this, [this]{ m_minimizeToTray = false; close(); });
+    connect(m_trayIcon, &QSystemTrayIcon::activated,
+            this, &MainWindow::onTrayActivated);
     QSettings s("MusicPlayer","MusicPlayer");
-    m_musicDir   = s.value("musicDir").toString();
-    m_lyricsDir  = s.value("lyricsDir").toString();
-    m_showLyrics = s.value("showLyrics",false).toBool();
-    m_audio->setVolume(
-        s.value("volume",70).toInt()/100.f
-        );
+    m_musicDir        = s.value("musicDir").toString();
+    m_lyricsDir       = s.value("lyricsDir").toString();
+    m_showLyrics      = s.value("showLyrics",false).toBool();
+    m_minimizeToTray  = s.value("minimizeToTray",false).toBool();
+    m_audio->setVolume(s.value("volume",70).toInt()/100.f);
+    m_lyricsOverlay->setHideOnHover(s.value("hideOnHover",false).toBool());
+    m_lyricsOverlay->setColors(
+        s.value("lyricColorSung",  "#E63248").toString(),
+        s.value("lyricColorUnsang","#F1DDDF").toString());
     if(!m_musicDir.isEmpty())
         loadDir(m_musicDir);
     QTimer::singleShot(
@@ -464,6 +518,22 @@ MainWindow::MainWindow(QWidget *parent)
             restorePlaybackState();
         }
         );
+    // 恢复置顶状态（延迟到窗口显示后，windowHandle() 才可用）
+    QSettings sInit("MusicPlayer","MusicPlayer");
+    if (sInit.value("alwaysOnTop", false).toBool()) {
+        m_alwaysOnTop = true;
+        m_btnPin->setStyleSheet("background:rgba(139,108,255,200);color:white;border:none;");
+        m_btnPin->setToolTip("取消置顶");
+        QTimer::singleShot(0, this, [this] {
+            if (windowHandle())
+                windowHandle()->setFlag(Qt::WindowStaysOnTopHint, true);
+        });
+    }
+    // 每隔 10 秒自动保存播放位置
+    m_autoSaveTimer = new QTimer(this);
+    m_autoSaveTimer->setInterval(10000);
+    connect(m_autoSaveTimer, &QTimer::timeout, this, &MainWindow::savePlaybackState);
+    m_autoSaveTimer->start();
 }
 MainWindow::~MainWindow() {
 }
@@ -552,15 +622,19 @@ void MainWindow::setupUI() {
     }
     ;
     m_btnMin   = makeSysBtn("wbMin");
+    m_btnPin   = makeSysBtn("wbPin");
     m_btnClose = makeSysBtn("wbClose");
     m_btnMin->setText("－");
+    m_btnPin->setText("📌");
     m_btnClose->setText("✕");
     th->addWidget(winIcon);
     th->addSpacing(6);
     th->addWidget(m_lblWinTitle, 1);
     th->addWidget(m_btnMin);
+    th->addWidget(m_btnPin);
     th->addWidget(m_btnClose);
-    connect(m_btnMin,   &QPushButton::clicked, this, &QMainWindow::showMinimized);
+    connect(m_btnMin,&QPushButton::clicked,this,[this] {if (m_minimizeToTray&& m_trayIcon&& m_trayIcon->isVisible()) {hide(); } else {showMinimized();}});
+    connect(m_btnPin,   &QPushButton::clicked, this, &MainWindow::onTogglePin);
     connect(m_btnClose, &QPushButton::clicked, this, &QMainWindow::close);
     vroot->addWidget(m_titleBar);
     QWidget *content = new QWidget;
@@ -776,7 +850,7 @@ void MainWindow::setupUI() {
                     ).arg(color)
                 );
         }
-    );
+        );
 }
 void MainWindow::applyStyleSheet() {
     setStyleSheet(R"(
@@ -801,6 +875,7 @@ QLabel#winTitle{
     background:transparent;
 }
 QPushButton#wbMin,
+QPushButton#wbPin,
 QPushButton#wbMax,
 QPushButton#wbClose{
     background:transparent;
@@ -809,6 +884,7 @@ QPushButton#wbClose{
     font-size:13px;
 }
 QPushButton#wbMin:hover,
+QPushButton#wbPin:hover,
 QPushButton#wbMax:hover{
     background:rgba(0,0,0,0.07);
     color:#1a1a2e;
@@ -970,9 +1046,9 @@ void MainWindow::restorePlaybackState() {
         m_lyricsOverlay->loadLyrics(findLyricFile(t.filePath));
         connect(m_player,&QMediaPlayer::mediaStatusChanged,this,[this, pos](QMediaPlayer::MediaStatus status) {
             if(status == QMediaPlayer::LoadedMedia) {
-                    m_player->setPosition(pos);
-                }
-            },Qt::SingleShotConnection);
+                m_player->setPosition(pos);
+            }
+        },Qt::SingleShotConnection);
     }
 }
 static const QStringList &audioExts() {
@@ -1226,6 +1302,11 @@ void MainWindow::onOpenSettings() {
     m_settingsDlg->setLyricsDir(m_lyricsDir);
     m_settingsDlg->setShowLyrics(m_showLyrics);
     m_settingsDlg->setVolume(m_audio->volume());
+    QSettings s("MusicPlayer","MusicPlayer");
+    m_settingsDlg->setMinimizeToTray(s.value("minimizeToTray",false).toBool());
+    m_settingsDlg->setHideOnHover(s.value("hideOnHover",false).toBool());
+    m_settingsDlg->setLyricColorSung(s.value("lyricColorSung","#E63248").toString());
+    m_settingsDlg->setLyricColorUnsang(s.value("lyricColorUnsang","#F1DDDF").toString());
     m_settingsDlg->exec();
 }
 void MainWindow::onMusicDirChanged(const QString &dir) {
@@ -1248,6 +1329,33 @@ void MainWindow::onLyricsDirChanged(
                               ).filePath
                 )
             );
+    }
+}
+void MainWindow::onTrayActivated(QSystemTrayIcon::ActivationReason reason) {
+    if (reason == QSystemTrayIcon::Trigger) {
+        if (isHidden()) {
+            showNormal();
+            raise();
+            activateWindow();
+        } else {hide();}
+    }
+}
+void MainWindow::onTogglePin() {
+    m_alwaysOnTop = !m_alwaysOnTop;
+    if (windowHandle()) {
+        windowHandle()->setFlag(Qt::WindowStaysOnTopHint, m_alwaysOnTop);
+    }
+    QSettings s("MusicPlayer","MusicPlayer");
+    s.setValue("alwaysOnTop", m_alwaysOnTop);
+    if (m_alwaysOnTop) {
+        m_btnPin->setStyleSheet(
+            "background:rgba(139,108,255,200);"
+            "color:white;border:none;"
+            );
+        m_btnPin->setToolTip("取消置顶");
+    } else {
+        m_btnPin->setStyleSheet(QString());
+        m_btnPin->setToolTip("置顶");
     }
 }
 void MainWindow::dragEnterEvent(
