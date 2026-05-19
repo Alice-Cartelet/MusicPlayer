@@ -76,7 +76,7 @@
 
 | 主播放界面 | 修改界面 |
 | :---: | :---: |
-| <img width="1204" height="993" alt="" src="https://github.com/user-attachments/assets/304b7efd-e0f2-4fa2-bec6-31a9a28565a7" /> | <img width="1192" height="1045" alt="屏幕截图 2026-05-19 175721" src="https://github.com/user-attachments/assets/0a43f8a3-7bc4-4f2c-ae6f-77c861490916" /> |
+| <img width="1204" height="993" alt="" src="https://github.com/user-attachments/assets/304b7efd-e0f2-4fa2-bec6-31a9a28565a7" /> | <img width="1197" height="1076" alt="屏幕截图 2026-05-19 180000" src="https://github.com/user-attachments/assets/3c67e10f-c223-4500-a0b4-8c899dee71c5" /> |
 | *播放器主界面截图* | *修改界面* |
 
 ---
