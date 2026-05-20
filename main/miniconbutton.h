@@ -6,21 +6,12 @@ class MiniconButton : public QPushButton
 public:
     enum IconType
     {
-        Prev,
-        Play,
-        Pause,
-        Next
-    };
-    explicit MiniconButton(
-        IconType type,
-        QWidget *parent = nullptr
-        );
-
+        Prev, Play, Pause, Next
+    }
+    ;
+    explicit MiniconButton( IconType type, QWidget *parent = nullptr );
     void setIconType(IconType type);
-protected:
-    void paintEvent(
-        QPaintEvent *event
-        ) override;
-private:
-    IconType m_type;
-};
+protected: void paintEvent( QPaintEvent *event ) override;
+private: IconType m_type;
+}
+;

@@ -15,18 +15,18 @@
 #include <QSystemTrayIcon>
 #include <QMenu>
 #include "playlist.h"
+#include "playlistmanager.h"
 #include "lyricsoverlay.h"
 #include "settingsdialog.h"
 #include "minicontrolwindow.h"
 class MarqueeLabel;
 class CoverLabel;
-class MainWindow : public QMainWindow {
+class MainWindow : public QMainWindow
+{
     Q_OBJECT
-public:
-    explicit MainWindow(QWidget *parent = nullptr);
+public: explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
-protected:
-    void dragEnterEvent(QDragEnterEvent *e) override;
+protected: void dragEnterEvent(QDragEnterEvent *e) override;
     void dropEvent(QDropEvent *e) override;
     void keyPressEvent(QKeyEvent *e) override;
     void closeEvent(QCloseEvent *e) override;
@@ -35,8 +35,7 @@ protected:
     void mouseMoveEvent(QMouseEvent *e) override;
     void mouseReleaseEvent(QMouseEvent *e) override;
     void mouseDoubleClickEvent(QMouseEvent *e) override;
-private slots:
-    void onPlayPause();
+private slots: void onPlayPause();
     void onPrevious();
     void onNext();
     void onPlaylistDoubleClicked(const QModelIndex &idx);
@@ -44,15 +43,16 @@ private slots:
     void onPlaybackStateChanged(QMediaPlayer::PlaybackState s);
     void onDurationChanged(qint64 d);
     void onPositionChanged(qint64 p);
-    void onMediaErrorOccurred(QMediaPlayer::Error error,const QString &errorString);
+    void onMediaErrorOccurred(QMediaPlayer::Error error, const QString &errorString);
     void onOpenSettings();
     void onMusicDirChanged(const QString &dir);
     void onLyricsDirChanged(const QString &dir);
     void onTogglePin();
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
-   // void onPlaylistContextMenu(const QPoint &pos);
-private:
-    void setupPlayer();
+    void onPlaylistSwitchClicked();
+    void onToggleFavorite(int trackRow);
+    void onAddToPlaylist(const QString &playlistName, int trackRow);
+private: void setupPlayer();
     void setupUI();
     void applyStyleSheet();
     void savePlaybackState();
@@ -65,26 +65,33 @@ private:
     QString findLyricFile(const QString &audioPath) const;
     void updateTitleBarTitle(const QString &title);
     void editLyricsFile(int row);
-private:
-    QMediaPlayer *m_player = nullptr;
+    void showPlaylistSwitchMenu();
+    void showAddToPlaylistMenu(int trackRow, const QPoint &globalPos);
+private: QMediaPlayer *m_player = nullptr;
     QAudioOutput *m_audio = nullptr;
     Playlist *m_playlist = nullptr;
     int m_currentIndex = -1;
     bool m_seeking = false;
-    enum PlayMode {Sequential,RepeatOne,Shuffle};
+    enum PlayMode
+    {
+        Sequential, RepeatOne, Shuffle
+    }
+    ;
     PlayMode m_playMode = Sequential;
+    QString m_currentPlaylistName = "全部音乐";
     QString m_musicDir;
     QString m_lyricsDir;
     bool m_showLyrics = false;
+    PlaylistManager *m_plManager = nullptr;
     QWidget *m_bgCover = nullptr;
-    QWidget    *m_titleBar   = nullptr;
-    QLabel     *m_lblWinTitle = nullptr;
-    QPushButton *m_btnMin    = nullptr;
-    QPushButton *m_btnPin    = nullptr;
-    QPushButton *m_btnClose  = nullptr;
+    QWidget *m_titleBar = nullptr;
+    QLabel *m_lblWinTitle = nullptr;
+    QPushButton *m_btnMin = nullptr;
+    QPushButton *m_btnPin = nullptr;
+    QPushButton *m_btnClose = nullptr;
     bool m_alwaysOnTop = false;
-    QTimer *m_autoSaveTimer  = nullptr;
-    bool   m_dragging    = false;
+    QTimer *m_autoSaveTimer = nullptr;
+    bool m_dragging = false;
     QPoint m_dragOffset;
     CoverLabel *m_lblCover = nullptr;
     MarqueeLabel *m_lblTitle = nullptr;
@@ -99,12 +106,13 @@ private:
     QLabel *m_lblStatus = nullptr;
     QPushButton *m_btnSettings = nullptr;
     QPushButton *m_btnShuffle = nullptr;
+    QPushButton *m_btnPlaylistSwitch = nullptr;
     LyricsOverlay *m_lyricsOverlay = nullptr;
     SettingsDialog *m_settingsDlg = nullptr;
-    MiniControlWindow *m_miniControl= nullptr;
+    MiniControlWindow *m_miniControl = nullptr;
     bool m_enableMiniControl = false;
     QSystemTrayIcon *m_trayIcon = nullptr;
-    QMenu           *m_trayMenu = nullptr;
+    QMenu *m_trayMenu = nullptr;
     bool m_minimizeToTray = false;
 }
 ;

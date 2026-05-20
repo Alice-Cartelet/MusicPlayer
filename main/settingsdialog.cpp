@@ -9,8 +9,8 @@
 #include <QSettings>
 #include <QRegularExpressionValidator>
 #include <QRegularExpression>
-SettingsDialog::SettingsDialog(QWidget *parent)
-    : QDialog(parent) {
+SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
+{
     setWindowTitle("设置");
     setModal(true);
     setFixedSize(460, 410);
@@ -26,7 +26,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     m_edtMusic->setReadOnly(true);
     m_btnMusic = new QPushButton("浏览");
     m_btnMusic->setObjectName("browseBtn");
-   m_btnMusic->setFixedSize(64, 32);
+    m_btnMusic->setFixedSize(64, 32);
     musicRow->addWidget(m_edtMusic, 1);
     musicRow->addWidget(m_btnMusic);
     musicRow->setSpacing(12);
@@ -77,8 +77,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
         edt->setObjectName("colorEdit");
         edt->setMaxLength(7);
         edt->setFixedWidth(100);
-        edt->setValidator(new QRegularExpressionValidator(
-            QRegularExpression("^#[0-9A-Fa-f]{0,6}$"), edt));
+        edt->setValidator(new QRegularExpressionValidator(QRegularExpression("^#[0-9A-Fa-f]{0,6}$"), edt));
         swatch = new QLabel;
         swatch->setObjectName("colorSwatch");
         swatch->setStyleSheet("margin-left:6px;");
@@ -102,12 +101,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     colorLayout->addLayout(makeColorRow(m_edtColorUnsang,m_swatchUnsang,"#F1DDDF"));
     form->addRow("歌词颜色：", colorLayout);
     root->addLayout(form);
-    QLabel *aboutLabel = new QLabel(
-        QString(
-            "Version: %1<br>"
-            "GitHub: github.com/Alice-Cartelet"
-            ).arg(QApplication::applicationVersion())
-        );
+   QLabel *aboutLabel = new QLabel( QString( "Version: %1<br>" "GitHub: github.com/Alice-Cartelet" ).arg(QApplication::applicationVersion()) );
     aboutLabel->setObjectName("aboutLabel");
     aboutLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
     aboutLabel->setOpenExternalLinks(false);

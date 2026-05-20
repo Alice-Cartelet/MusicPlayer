@@ -9,6 +9,7 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     miniControlWindow.cpp \
+    playlistmanager.cpp \
     miniconbutton.cpp \
     playlist.cpp \
     lrcxparser.cpp \
@@ -18,6 +19,7 @@ SOURCES += \
 HEADERS += \
     app.rc \
     mainwindow.h \
+    playlistmanager.h \
     miniconbutton.h \
     minicontrolwindow.h \
     playlist.h \

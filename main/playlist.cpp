@@ -1,70 +1,106 @@
 #include "playlist.h"
+#include "playlistmanager.h"
 #include <QFileInfo>
-Playlist::Playlist(QObject *parent)
-    : QAbstractListModel(parent) {
+Playlist::Playlist(QObject *parent) : QAbstractListModel(parent)
+{
 }
-int Playlist::rowCount(const QModelIndex &parent) const {
+void Playlist::setPlaylistManager(PlaylistManager *mgr)
+{
+    m_plManager = mgr;
+}
+int Playlist::rowCount(const QModelIndex &parent) const
+{
     if (parent.isValid()) return 0;
     return m_tracks.size();
 }
-QVariant Playlist::data(const QModelIndex &index, int role) const {
-    if (!index.isValid() || index.row() >= m_tracks.size())
-        return {
-        }
+QVariant Playlist::data(const QModelIndex &index, int role) const
+{
+    if (!index.isValid() || index.row() >= m_tracks.size()) return
+            {
+            }
         ;
     const TrackItem &t = m_tracks[index.row()];
-    switch (role) {
-    case Qt::DisplayRole:
-    case TitleRole:    return t.title;
-    case ArtistRole:   return t.artist.isEmpty() ? QStringLiteral("未知艺术家") : t.artist;
+    switch (role)
+    {
+    case Qt::DisplayRole: case TitleRole: return t.title;
+    case ArtistRole: return t.artist.isEmpty() ? QStringLiteral("未知艺术家") : t.artist;
     case DurationRole: return t.durationString();
     case FilePathRole: return t.filePath;
-    default:           return {
-        }
+    case FavoriteRole: if (m_plManager) return m_plManager->isFavorite(t.filePath);
+        return false;
+    default: return
+            {
+            }
         ;
     }
 }
-void Playlist::addTrack(const TrackItem &track) {
-    beginInsertRows( {
-                    }
-                    , m_tracks.size(), m_tracks.size());
+void Playlist::addTrack(const TrackItem &track)
+{
+    beginInsertRows(
+        {
+        }
+        , m_tracks.size(), m_tracks.size());
     m_tracks.append(track);
     endInsertRows();
 }
-void Playlist::addTracks(const QList<TrackItem> &tracks) {
+void Playlist::addTracks(const QList<TrackItem> &tracks)
+{
     if (tracks.isEmpty()) return;
     int first = m_tracks.size();
-    beginInsertRows( {
-                    }
-                    , first, first + tracks.size() - 1);
+    beginInsertRows(
+        {
+        }
+        , first, first + tracks.size() - 1);
     m_tracks.append(tracks);
     endInsertRows();
 }
-void Playlist::removeTrack(int idx) {
+void Playlist::removeTrack(int idx)
+{
     if (idx < 0 || idx >= m_tracks.size()) return;
-    beginRemoveRows( {
-                    }
-                    , idx, idx);
+    beginRemoveRows(
+        {
+        }
+        , idx, idx);
     m_tracks.removeAt(idx);
     endRemoveRows();
 }
-void Playlist::clear() {
+void Playlist::clear()
+{
     beginResetModel();
     m_tracks.clear();
     endResetModel();
 }
-TrackItem Playlist::track(int index) const {
-    if (index < 0 || index >= m_tracks.size()) return {
-        }
+TrackItem Playlist::track(int index) const
+{
+    if (index < 0 || index >= m_tracks.size()) return
+            {
+            }
         ;
     return m_tracks[index];
 }
-void Playlist::updateDuration(int index, qint64 ms) {
+void Playlist::updateDuration(int index, qint64 ms)
+{
     if (index < 0 || index >= m_tracks.size()) return;
     m_tracks[index].duration = ms;
     QModelIndex idx = createIndex(index, 0);
-    emit dataChanged(idx, idx, {
-                                   DurationRole
-                               }
+    emit dataChanged(idx, idx,
+                     {
+                         DurationRole
+                     }
                      );
+}
+void Playlist::notifyFavoriteChanged(const QString &filePath)
+{
+    for (int i = 0; i < m_tracks.size(); ++i)
+    {
+        if (m_tracks[i].filePath == filePath)
+        {
+            QModelIndex idx = createIndex(i, 0);
+            emit dataChanged(idx, idx,
+                             {
+                                 FavoriteRole
+                             }
+                             );
+        }
+    }
 }

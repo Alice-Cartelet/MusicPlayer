@@ -4,39 +4,22 @@
 #include <QLabel>
 #include <QTimer>
 #include "miniconbutton.h"
-class MiniControlWindow : public QWidget {
+class MiniControlWindow : public QWidget
+{
     Q_OBJECT
-public:
-    explicit MiniControlWindow(
-        QWidget *parent = nullptr
-        );
+public: explicit MiniControlWindow( QWidget *parent = nullptr );
     void setPlaying(bool playing);
     void setOpacityValue(int value);
-    void setCover(
-        const QPixmap &pix
-        );
-    void setTitle(
-        const QString &title
-        );
-signals:
-    void playPauseClicked();
+    void setCover( const QPixmap &pix );
+    void setTitle( const QString &title );
+signals: void playPauseClicked();
     void nextClicked();
     void prevClicked();
-protected:
-    void paintEvent(
-        QPaintEvent *event
-        ) override;
-    void mousePressEvent(
-        QMouseEvent *e
-        ) override;
-    void mouseMoveEvent(
-        QMouseEvent *e
-        ) override;
-    void mouseReleaseEvent(
-        QMouseEvent *e
-        ) override;
-private:
-    MiniconButton *m_btnPrev;
+protected: void paintEvent( QPaintEvent *event ) override;
+    void mousePressEvent( QMouseEvent *e ) override;
+    void mouseMoveEvent( QMouseEvent *e ) override;
+    void mouseReleaseEvent( QMouseEvent *e ) override;
+private: MiniconButton *m_btnPrev;
     MiniconButton *m_btnPlay;
     MiniconButton *m_btnNext;
     QWidget *m_titleContainer;
