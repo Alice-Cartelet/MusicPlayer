@@ -4,7 +4,8 @@
 ![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)
 
 基于 Qt 6 开发的简洁本地音乐播放器，有半透明磨砂效果，功能极简，只有附加桌面歌词显示功能。
-<img width="1204" height="993" alt="屏幕截图 2026-05-18 200635" src="https://github.com/user-attachments/assets/304b7efd-e0f2-4fa2-bec6-31a9a28565a7" />
+<img width="1311" height="1058" alt="屏幕截图 2026-05-20 101628" src="https://github.com/user-attachments/assets/a53da1f1-3330-468c-9730-32a7089bf7e0" />
+
 
 ---
 # 🎵 MusicPlayer
@@ -79,7 +80,7 @@
 
 | 主播放界面 | 修改界面 |
 | :---: | :---: |
-| <img width="1204" height="993" alt="" src="https://github.com/user-attachments/assets/304b7efd-e0f2-4fa2-bec6-31a9a28565a7" /> | <img width="1232" height="1078" alt="屏幕截图 2026-05-20 101247" src="https://github.com/user-attachments/assets/75134249-fca6-49fe-aa0e-1967ac4749dd" /> |
+| <img width="1311" height="1058" alt="屏幕截图 2026-05-20 101628" src="https://github.com/user-attachments/assets/a53da1f1-3330-468c-9730-32a7089bf7e0" /> | <img width="1232" height="1078" alt="屏幕截图 2026-05-20 101247" src="https://github.com/user-attachments/assets/75134249-fca6-49fe-aa0e-1967ac4749dd" /> |
 | *播放器主界面截图* | *修改界面* |
 
 ---
