@@ -3,7 +3,7 @@
 ![Qt](https://img.shields.io/badge/Qt-%23217346.svg?style=for-the-badge&logo=Qt&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)
 
-基于 Qt 6 开发的简洁本地音乐播放器，有半透明磨砂效果，功能极简？越来越大了。只有附加桌面歌词显示功能。
+基于 Qt 6 开发的简洁本地音乐播放器，有半透明磨砂效果，功能极简？越来越大了。有附加桌面歌词显示功能。
 <img width="1381" height="1008" alt="屏幕截图 2026-05-20 194615" src="https://github.com/user-attachments/assets/312a05e2-8a98-480e-bdc3-5e48236ab025" />
 
 
