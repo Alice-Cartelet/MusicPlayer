@@ -63,6 +63,11 @@
   * Marquee 滚动长标题。
   * 平滑动画与透明渐变。
   * UTF-8 多语言歌词兼容（支持中文 / 日文 / 梵文等）。
+  * 可以对桌面歌词颜色进行修改，在设置界面新增修改歌词颜色功能
+  * 播放界面可以强制置顶，添加钉子功能。
+  * 新增最小化到托盘功能，可在设置界面打开或关闭。
+  * 新增当鼠标处于歌词上方自动隐藏歌词功能，可在设置界面打开，当开启时，鼠标会穿过歌词，因此拖拽歌词将不再可用。
+  * 新增记忆歌词位置功能，当下次打开时，无需重新拖拽歌词到适当位置。
   * 高 DPI 显示优化。
 
 ---
@@ -71,7 +76,7 @@
 
 | 主播放界面 | 修改界面 |
 | :---: | :---: |
-| <img width="1204" height="993" alt="" src="https://github.com/user-attachments/assets/304b7efd-e0f2-4fa2-bec6-31a9a28565a7" /> | <img width="1203" height="993" alt="" src="https://github.com/user-attachments/assets/cb8d241f-7d03-420b-a9a2-12a0fe993c73" /> |
+| <img width="1204" height="993" alt="" src="https://github.com/user-attachments/assets/304b7efd-e0f2-4fa2-bec6-31a9a28565a7" /> | <img width="1197" height="1076" alt="屏幕截图 2026-05-19 180000" src="https://github.com/user-attachments/assets/3c67e10f-c223-4500-a0b4-8c899dee71c5" /> |
 | *播放器主界面截图* | *修改界面* |
 
 ---
