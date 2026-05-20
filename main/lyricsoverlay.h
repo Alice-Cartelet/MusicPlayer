@@ -13,6 +13,7 @@ public:
     void setLyricsVisible(bool v);
     bool lyricsVisible() const;
     void setHideOnHover(bool v);
+    void setFontSize(int size);
     void setColors(const QString &sung, const QString &unsang);
 signals:
     void closeRequested();
@@ -33,6 +34,7 @@ private:
     int m_currentLineIdx = -1;
     QString m_lineText;
     QFont m_font;
+    int m_fontSize = 28;
     QVector<float> m_charPixelsF;
     float m_totalW    = 0.f;
     int   m_lineX0    = 0;

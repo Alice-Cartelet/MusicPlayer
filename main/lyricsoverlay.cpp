@@ -27,11 +27,11 @@ static QStringList splitUnicodeChars(const QString &s)
     }
     return out;
 }
-static constexpr int kFontPt  = 28;
 static constexpr int kWinW    = 1000;
-static constexpr int kWinH    = 72;
 static constexpr int kPadX    = 80;
 static constexpr int kMinWinW = 300;
+static int calcWindowHeight(int fontSize)
+{return qMax(72, fontSize * 3);}
 static float easeOut(float t) {
     float r = 1.f - t;
     return 1.f - r*r*r;
@@ -45,17 +45,13 @@ LyricsOverlay::LyricsOverlay(QWidget *parent)
                   | Qt::NoDropShadowWindowHint) {
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_ShowWithoutActivating);
-    setMinimumSize(kWinW, kWinH);
-    resize(kWinW, kWinH);
+    int h = calcWindowHeight(m_fontSize);
+    setMinimumSize(kWinW, h);
+    resize(kWinW, h);
     setMouseTracking(true);
-    if (QScreen *scr =
-        QApplication::primaryScreen()) {
-        QRect g =
-            scr->availableGeometry();
-        move(
-            g.center().x() - kWinW / 2,
-            g.bottom() - kWinH - 90
-            );
+    if (QScreen *scr =QApplication::primaryScreen()) {
+        QRect g =scr->availableGeometry();
+        move(g.center().x() - kWinW / 2,g.bottom() - calcWindowHeight(m_fontSize) - 90);
     }
     buildFont();
     m_animTimer = new QTimer(this);
@@ -108,7 +104,7 @@ void LyricsOverlay::showEvent(QShowEvent *e) {
     } else if (QScreen *scr = QApplication::primaryScreen()) {
         QRect g = scr->availableGeometry();
         m_anchorCenterX = g.center().x();
-        m_anchorY = g.bottom() - kWinH - 90;
+        m_anchorY =g.bottom()- calcWindowHeight(m_fontSize)- 90;
         move(m_anchorCenterX - width() / 2, m_anchorY);
     }
 #ifdef Q_OS_WIN
@@ -132,7 +128,7 @@ void LyricsOverlay::showEvent(QShowEvent *e) {
 #endif
 }
 void LyricsOverlay::buildFont() {
-    m_font.setPointSize(kFontPt);
+   m_font.setPointSize(m_fontSize);
     m_font.setBold(true);
     m_font.setFamilies( {
         "Microsoft YaHei",
@@ -179,17 +175,9 @@ void LyricsOverlay::updatePosition(qint64 posMs) {
         m_targetPx = 0;
         QFontMetricsF fmf(m_font);
         m_totalW =
-            (float)fmf.horizontalAdvance(
-                m_lineText
-                );
-        m_lineX0 =
-            (kWinW - (int)m_totalW) / 2;
-        m_baseY =
-            (kWinH
-             + (int)(
-                 fmf.ascent()
-                 - fmf.descent()
-                 )) / 2;
+            (float)fmf.horizontalAdvance(m_lineText);
+        m_lineX0 =(width() - (int)m_totalW) / 2;
+        m_baseY =(height()+ (int)(fmf.ascent()- fmf.descent())) / 2;
         m_charPixelsF.clear();
         float cx = 0.f;
         QStringList glyphs =splitUnicodeChars(m_lineText);
@@ -430,7 +418,7 @@ void LyricsOverlay::resizeToText(const QString &text) {
         m_anchorCenterX = geometry().center().x();
         m_anchorY = geometry().top();
     }
-    resize(newW, kWinH);
+    resize(newW,calcWindowHeight(m_fontSize));
     move(m_anchorCenterX - newW / 2, m_anchorY);
 }
 void LyricsOverlay::setHideOnHover(bool v) {
@@ -440,6 +428,16 @@ void LyricsOverlay::setColors(const QString &sung, const QString &unsang) {
     QColor cs(sung), cu(unsang);
     if (cs.isValid())  m_colorSung   = cs;
     if (cu.isValid())  m_colorUnsang = cu;
+    update();
+}
+void LyricsOverlay::setFontSize(int size)
+{
+    m_fontSize = qBound(18, size, 60);
+    buildFont();
+    QFontMetricsF fmf(m_font);
+    m_totalW =(float)fmf.horizontalAdvance(m_lineText);
+    int newH =calcWindowHeight(m_fontSize);
+    resize(width(), newH);
     update();
 }
 void LyricsOverlay::enterEvent(QEnterEvent *e) {

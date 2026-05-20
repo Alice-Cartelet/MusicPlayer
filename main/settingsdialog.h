@@ -3,6 +3,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QCheckBox>
+#include <QSlider>
 #include <QLabel>
 class SettingsDialog : public QDialog {
     Q_OBJECT
@@ -16,6 +17,7 @@ public:
     bool    hideOnHover() const;
     QString lyricColorSung() const;
     QString lyricColorUnsang() const;
+    int lyricFontSize() const;
     void setMusicDir(const QString &d);
     void setLyricsDir(const QString &d);
     void setShowLyrics(bool v);
@@ -24,6 +26,7 @@ public:
     void setHideOnHover(bool v);
     void setLyricColorSung(const QString &hex);
     void setLyricColorUnsang(const QString &hex);
+    void setLyricFontSize(int v);
 signals:
     void musicDirChanged(const QString &dir);
     void lyricsDirChanged(const QString &dir);
@@ -32,6 +35,9 @@ signals:
     void minimizeToTrayChanged(bool v);
     void hideOnHoverChanged(bool v);
     void lyricColorsChanged(const QString &sung, const QString &unsang);
+    void miniOpacityChanged(int);
+    void miniControlChanged(bool);
+    void lyricFontSizeChanged(int);
 private:
     void applyStyle();
     void updateSwatch(QLabel *swatch, const QString &hex);
@@ -39,11 +45,14 @@ private:
     QLineEdit   *m_edtLyrics     = nullptr;
     QCheckBox   *m_chkLyrics     = nullptr;
     QCheckBox   *m_chkTray       = nullptr;
+    QCheckBox *m_chkMiniControl  = nullptr;
     QCheckBox   *m_chkHideHover  = nullptr;
     QPushButton *m_btnMusic      = nullptr;
     QPushButton *m_btnLyrics     = nullptr;
     QPushButton *m_btnOk         = nullptr;
     QPushButton *m_btnCancel     = nullptr;
+    QSlider *m_miniOpacitySlider = nullptr;
+    QSlider *m_lyricFontSlider = nullptr;
     class QSlider *m_volSlider   = nullptr;
     QLineEdit   *m_edtColorSung  = nullptr;
     QLineEdit   *m_edtColorUnsang= nullptr;

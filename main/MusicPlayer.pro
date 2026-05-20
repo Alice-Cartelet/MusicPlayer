@@ -8,6 +8,8 @@ app.ico
 SOURCES += \
     main.cpp \
     mainwindow.cpp \
+    miniControlWindow.cpp \
+    miniconbutton.cpp \
     playlist.cpp \
     lrcxparser.cpp \
     lyricsoverlay.cpp \
@@ -16,11 +18,14 @@ SOURCES += \
 HEADERS += \
     app.rc \
     mainwindow.h \
+    miniconbutton.h \
+    minicontrolwindow.h \
     playlist.h \
     trackitem.h \
     lrcxparser.h \
     lyricsoverlay.h \
-    settingsdialog.h
+    settingsdialog.h \
+    version.h
 win32: LIBS += -ldwmapi
 win32 {
     RC_FILE += app.rc

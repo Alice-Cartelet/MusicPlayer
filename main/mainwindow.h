@@ -17,6 +17,7 @@
 #include "playlist.h"
 #include "lyricsoverlay.h"
 #include "settingsdialog.h"
+#include "minicontrolwindow.h"
 class MarqueeLabel;
 class CoverLabel;
 class MainWindow : public QMainWindow {
@@ -49,6 +50,7 @@ private slots:
     void onLyricsDirChanged(const QString &dir);
     void onTogglePin();
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
+   // void onPlaylistContextMenu(const QPoint &pos);
 private:
     void setupPlayer();
     void setupUI();
@@ -62,6 +64,7 @@ private:
     QString formatTime(qint64 ms) const;
     QString findLyricFile(const QString &audioPath) const;
     void updateTitleBarTitle(const QString &title);
+    void editLyricsFile(int row);
 private:
     QMediaPlayer *m_player = nullptr;
     QAudioOutput *m_audio = nullptr;
@@ -98,6 +101,8 @@ private:
     QPushButton *m_btnShuffle = nullptr;
     LyricsOverlay *m_lyricsOverlay = nullptr;
     SettingsDialog *m_settingsDlg = nullptr;
+    MiniControlWindow *m_miniControl= nullptr;
+    bool m_enableMiniControl = false;
     QSystemTrayIcon *m_trayIcon = nullptr;
     QMenu           *m_trayMenu = nullptr;
     bool m_minimizeToTray = false;

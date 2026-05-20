@@ -23,6 +23,11 @@
 #include <QGraphicsBlurEffect>
 #include <QGraphicsScene>
 #include <QGraphicsPixmapItem>
+#include <QProcess>
+#include <QTextStream>
+#include <QStringConverter>
+#include <QVariantAnimation>
+#include <QEasingCurve>
 class BlurredBackground : public QWidget {
 public:
     explicit BlurredBackground(QWidget *p = nullptr) : QWidget(p) {
@@ -330,81 +335,53 @@ private:
 ;
 class TrackDelegate : public QStyledItemDelegate {
 public:
-    explicit TrackDelegate(QObject *p=nullptr):QStyledItemDelegate(p) {
+    explicit TrackDelegate(QObject *p=nullptr)
+        : QStyledItemDelegate(p) {
     }
-    void paint(QPainter *p,const QStyleOptionViewItem &opt,const QModelIndex &idx) const override {
+    void paint(QPainter *p,const QStyleOptionViewItem &opt,
+               const QModelIndex &idx) const override {
         p->save();
+        p->setRenderHint(QPainter::Antialiasing);
         bool sel = opt.state & QStyle::State_Selected;
         bool hov = opt.state & QStyle::State_MouseOver;
-        p->setRenderHint(QPainter::Antialiasing);
-        QRect r = opt.rect.adjusted(4,2,-4,-2);
-        if(sel) {
-            p->setBrush(QColor("#E72D48"));
+        QRect r = opt.rect;
+        if(!sel && hov) {
             p->setPen(Qt::NoPen);
-            p->drawRoundedRect(r,10,10);
-            p->fillRect(r.x(),r.y(),4,r.height(),QColor("#E72D48"));
-        } else if(hov) {
-            p->setBrush(QColor(139,108,255,18));
-            p->setPen(Qt::NoPen);
-            p->drawRoundedRect(r,10,10);
-        } else {
-            p->setBrush(QColor("#F1DDDF"));
-            p->setPen(Qt::NoPen);
-            p->drawRoundedRect(r,10,10);
+            p->setBrush(QColor(0,0,0,10));
+            p->drawRoundedRect(
+                r.adjusted(2,1,-2,-1),
+                8,8
+                );
         }
+        QStyleOptionViewItem o(opt);
+        o.rect = r.adjusted(8,0,-4,0);
+        o.state &= ~QStyle::State_MouseOver;
+        o.state &= ~QStyle::State_HasFocus;
+        QStyledItemDelegate::paint(p,o,idx);
+        QRect er(
+            r.right()-30,
+            r.top(),
+            30,
+            r.height()
+            );
+        QColor c =
+            sel ? QColor(0,0,0,230) :
+                hov ? QColor(0,0,0,220) :
+                QColor(0,0,0,170);
         QFont f = p->font();
-        f.setPointSize(12);
+        f.setPointSize(14);
         p->setFont(f);
-        p->setPen(sel ? QColor("#7070a0") : QColor("#aaaacc"));
-        QRect nr = r.adjusted(10,0,0,0);
-        nr.setWidth(24);
+        p->setPen(c);
         p->drawText(
-            nr,
-            Qt::AlignVCenter|Qt::AlignRight,
-            QString::number(idx.row()+1)
-            );
-        f.setPointSize(18);
-        f.setBold(sel);
-        p->setFont(f);
-        p->setPen(sel ? QColor("#E72D48") : QColor("#F1DDDF"));
-        QRect tr = r.adjusted(42,5,-56,-r.height()/2);
-        p->drawText(
-            tr,
-            Qt::AlignVCenter|Qt::AlignLeft,
-            p->fontMetrics().elidedText(
-                idx.data().toString(),
-                Qt::ElideRight,
-                tr.width()
-                )
-            );
-        f.setPointSize(8);
-        f.setBold(false);
-        p->setFont(f);
-        p->setPen(QColor("#8890b0"));
-        QRect ar = r.adjusted(42,r.height()/2,-56,-3);
-        p->drawText(
-            ar,
-            Qt::AlignVCenter|Qt::AlignLeft,
-            p->fontMetrics().elidedText(
-                idx.data(Playlist::ArtistRole).toString(),
-                Qt::ElideRight,
-                ar.width()
-                )
-            );
-        p->setPen(QColor("#a0a4c0"));
-        QRect dr = r.adjusted(r.width()-54,0,-8,0);
-        p->drawText(
-            dr,
-            Qt::AlignVCenter|Qt::AlignRight,
-            idx.data(Playlist::DurationRole).toString()
+            er,
+            Qt::AlignCenter,
+            "✎"
             );
         p->restore();
     }
-    QSize sizeHint(const QStyleOptionViewItem&,const QModelIndex&) const override {
-        return {
-            0,52
-        }
-        ;
+    QSize sizeHint(const QStyleOptionViewItem &,
+                   const QModelIndex &) const override {
+        return QSize(0,30);
     }
 }
 ;
@@ -419,6 +396,44 @@ MainWindow::MainWindow(QWidget *parent)
     setWindowIcon(QIcon("app.ico"));
     setupPlayer();
     setupUI();
+    m_miniControl = new MiniControlWindow;
+    connect(
+        m_miniControl,
+        &MiniControlWindow::playPauseClicked,
+        this,
+        &MainWindow::onPlayPause
+        );
+    connect(
+        m_miniControl,
+        &MiniControlWindow::prevClicked,
+        this,
+        &MainWindow::onPrevious
+        );
+    connect(
+        m_miniControl,
+        &MiniControlWindow::nextClicked,
+        this,
+        &MainWindow::onNext
+        );
+    m_miniControl = new MiniControlWindow;
+    connect(
+        m_miniControl,
+        &MiniControlWindow::playPauseClicked,
+        this,
+        &MainWindow::onPlayPause
+        );
+    connect(
+        m_miniControl,
+        &MiniControlWindow::prevClicked,
+        this,
+        &MainWindow::onPrevious
+        );
+    connect(
+        m_miniControl,
+        &MiniControlWindow::nextClicked,
+        this,
+        &MainWindow::onNext
+        );
     applyStyleSheet();
     m_lyricsOverlay = new LyricsOverlay(nullptr);
     connect(
@@ -450,15 +465,52 @@ MainWindow::MainWindow(QWidget *parent)
             m_audio->setVolume(v);
         }
         );
-    connect(m_settingsDlg, &SettingsDialog::minimizeToTrayChanged, this,
-            [this](bool v) { m_minimizeToTray = v; });
-    connect(m_settingsDlg, &SettingsDialog::hideOnHoverChanged, this,
-            [this](bool v) { m_lyricsOverlay->setHideOnHover(v); });
-    connect(m_settingsDlg, &SettingsDialog::lyricColorsChanged, this,
-            [this](const QString &sung, const QString &unsang) {
-                m_lyricsOverlay->setColors(sung, unsang);
-            });
-    // ── 系统托盘 ──
+    connect(m_settingsDlg, &SettingsDialog::minimizeToTrayChanged, this,[this](bool v) {
+        m_minimizeToTray = v;
+    }
+            );
+    connect(m_settingsDlg, &SettingsDialog::hideOnHoverChanged, this,[this](bool v) {
+        m_lyricsOverlay->setHideOnHover(v);
+    }
+            );
+    connect(
+        m_settingsDlg,
+        &SettingsDialog::miniControlChanged,
+        this,
+        [this](bool v) {
+            m_enableMiniControl = v;
+            if(v)
+                m_miniControl->show(); else
+                m_miniControl->hide();
+        }
+        );
+    connect(
+        m_settingsDlg,
+        &SettingsDialog::miniOpacityChanged,
+        this,
+        [this](int v) {
+            m_miniControl->setOpacityValue(v);
+        }
+        );
+    connect(
+        m_settingsDlg,
+        &SettingsDialog::miniControlChanged,
+        this,
+        [this](bool v) {
+            m_enableMiniControl = v;
+            if(v)
+                m_miniControl->show(); else
+                m_miniControl->hide();
+        }
+        );
+    connect(m_settingsDlg, &SettingsDialog::lyricColorsChanged, this,[this](const QString &sung, const QString &unsang) {
+        m_lyricsOverlay->setColors(sung, unsang);
+    }
+            );
+    connect(m_settingsDlg,&SettingsDialog::lyricFontSizeChanged,this,[this](int size) {
+        m_lyricsOverlay->setFontSize(size);
+    }
+            );
     m_trayIcon = new QSystemTrayIcon(windowIcon(), this);
     m_trayMenu = new QMenu(this);
     m_trayMenu->setStyleSheet(R"(
@@ -493,24 +545,39 @@ QMenu::separator{
     m_trayIcon->setContextMenu(m_trayMenu);
     m_trayIcon->setToolTip("音乐播放器");
     m_trayIcon->show();
-    connect(actShow,  &QAction::triggered, this, [this]{ showNormal(); raise(); activateWindow(); });
+    connect(actShow,  &QAction::triggered, this, [this] {
+        showNormal();
+        raise();
+        activateWindow();
+    }
+            );
     connect(actPlay,  &QAction::triggered, this, &MainWindow::onPlayPause);
     connect(actNext,  &QAction::triggered, this, &MainWindow::onNext);
-    connect(actQuit,  &QAction::triggered, this, [this]{ m_minimizeToTray = false; close(); });
-    connect(m_trayIcon, &QSystemTrayIcon::activated,
-            this, &MainWindow::onTrayActivated);
+    connect(actQuit,&QAction::triggered,this,[this] {
+        m_minimizeToTray = false;
+        if (m_trayIcon)m_trayIcon->hide();
+        qApp->quit();
+    }
+            );
+    connect(m_trayIcon, &QSystemTrayIcon::activated,this, &MainWindow::onTrayActivated);
     QSettings s("MusicPlayer","MusicPlayer");
     m_musicDir        = s.value("musicDir").toString();
     m_lyricsDir       = s.value("lyricsDir").toString();
     m_showLyrics      = s.value("showLyrics",false).toBool();
     m_minimizeToTray  = s.value("minimizeToTray",false).toBool();
+    m_enableMiniControl =s.value("enableMiniControl",true).toBool();
+    m_enableMiniControl = s.value("enableMiniControl", true).toBool();
+    if(m_enableMiniControl)
+        m_miniControl->show();
     m_audio->setVolume(s.value("volume",70).toInt()/100.f);
     m_lyricsOverlay->setHideOnHover(s.value("hideOnHover",false).toBool());
-    m_lyricsOverlay->setColors(
-        s.value("lyricColorSung",  "#E63248").toString(),
-        s.value("lyricColorUnsang","#F1DDDF").toString());
+    m_lyricsOverlay->setColors(s.value("lyricColorSung",  "#E63248").toString(),s.value("lyricColorUnsang","#F1DDDF").toString());
+    m_lyricsOverlay->setFontSize(s.value("lyricFontSize", 28).toInt());
     if(!m_musicDir.isEmpty())
         loadDir(m_musicDir);
+    m_miniControl->setOpacityValue(s.value("miniOpacity",85).toInt() );
+    if(m_enableMiniControl)
+        m_miniControl->show();
     QTimer::singleShot(
         400,
         this,
@@ -518,7 +585,6 @@ QMenu::separator{
             restorePlaybackState();
         }
         );
-    // 恢复置顶状态（延迟到窗口显示后，windowHandle() 才可用）
     QSettings sInit("MusicPlayer","MusicPlayer");
     if (sInit.value("alwaysOnTop", false).toBool()) {
         m_alwaysOnTop = true;
@@ -527,9 +593,9 @@ QMenu::separator{
         QTimer::singleShot(0, this, [this] {
             if (windowHandle())
                 windowHandle()->setFlag(Qt::WindowStaysOnTopHint, true);
-        });
+        }
+                           );
     }
-    // 每隔 10 秒自动保存播放位置
     m_autoSaveTimer = new QTimer(this);
     m_autoSaveTimer->setInterval(10000);
     connect(m_autoSaveTimer, &QTimer::timeout, this, &MainWindow::savePlaybackState);
@@ -583,6 +649,7 @@ void MainWindow::setupPlayer() {
                 QImage img = v.value<QImage>();
                 if(!img.isNull()) {
                     QPixmap pix = QPixmap::fromImage(img);
+                    m_miniControl->setCover(pix);
                     static_cast<CoverLabel*>(m_lblCover)->setCoverPixmap(pix);
                     return;
                 }
@@ -633,7 +700,14 @@ void MainWindow::setupUI() {
     th->addWidget(m_btnMin);
     th->addWidget(m_btnPin);
     th->addWidget(m_btnClose);
-    connect(m_btnMin,&QPushButton::clicked,this,[this] {if (m_minimizeToTray&& m_trayIcon&& m_trayIcon->isVisible()) {hide(); } else {showMinimized();}});
+    connect(m_btnMin,&QPushButton::clicked,this,[this] {
+        if (m_minimizeToTray&& m_trayIcon&& m_trayIcon->isVisible()) {
+            hide();
+        } else {
+            showMinimized();
+        }
+    }
+            );
     connect(m_btnPin,   &QPushButton::clicked, this, &MainWindow::onTogglePin);
     connect(m_btnClose, &QPushButton::clicked, this, &QMainWindow::close);
     vroot->addWidget(m_titleBar);
@@ -758,7 +832,9 @@ void MainWindow::setupUI() {
     hh->addSpacing(8);
     hh->addWidget(m_btnSettings);
     m_listView = new QListView;
+    m_listView->setMouseTracking(true);
     m_listView->setObjectName("playlistView");
+    m_listView->setItemDelegate(new TrackDelegate(this));
     m_listView->setModel(m_playlist);
     rv->addWidget(hdr);
     rv->addWidget(m_listView,1);
@@ -792,26 +868,21 @@ void MainWindow::setupUI() {
             static_cast<BlurredBackground*>(m_bgCover)->clearSource();
         }
         );
-    connect(
-        m_btnSettings,
-        &QPushButton::clicked,
-        this,
-        &MainWindow::onOpenSettings
-        );
-    connect(
-        m_listView,
-        &QListView::doubleClicked,
-        this,
-        &MainWindow::onPlaylistDoubleClicked
-        );
-    connect(
-        m_seekBar,
-        &QSlider::sliderPressed,
-        this,
-        [this] {
-            m_seeking = true;
+    connect(m_btnSettings,&QPushButton::clicked,this,&MainWindow::onOpenSettings);
+    connect(m_listView,&QListView::doubleClicked,this,&MainWindow::onPlaylistDoubleClicked);
+    connect(m_listView,&QListView::clicked,this,[this](const QModelIndex &idx) {
+        QPoint pos =m_listView->viewport()->mapFromGlobal(QCursor::pos());
+        QRect r =m_listView->visualRect(idx);
+        QRect editRect(r.right() - 30,r.center().y() - 12,24,24);
+        if (editRect.contains(pos)) {
+            editLyricsFile(idx.row());
         }
-        );
+    }
+            );
+    connect(m_seekBar,&QSlider::sliderPressed,this,[this] {
+        m_seeking = true;
+    }
+            );
     connect(
         m_seekBar,
         &QSlider::sliderReleased,
@@ -1039,6 +1110,9 @@ void MainWindow::restorePlaybackState() {
         TrackItem t = m_playlist->track(index);
         m_player->setSource(QUrl::fromLocalFile(t.filePath));
         m_lblTitle->setText(t.title);
+        if(m_miniControl) {
+            m_miniControl->setTitle(t.title);
+        }
         m_lblArtist->setText(t.artist.isEmpty()? "未知艺术家": t.artist);
         setWindowTitle(t.title + " - 音乐播放器 by AliceCartelet");
         updateTitleBarTitle(t.title + " - 音乐播放器 by AliceCartelet");
@@ -1048,7 +1122,8 @@ void MainWindow::restorePlaybackState() {
             if(status == QMediaPlayer::LoadedMedia) {
                 m_player->setPosition(pos);
             }
-        },Qt::SingleShotConnection);
+        }
+                ,Qt::SingleShotConnection);
     }
 }
 static const QStringList &audioExts() {
@@ -1196,6 +1271,9 @@ void MainWindow::playTrack(int index) {
         );
     m_player->play();
     m_lblTitle->setText(t.title);
+    if(m_miniControl) {
+        m_miniControl->setTitle(t.title);
+    }
     m_lblArtist->setText(
         t.artist.isEmpty()
             ? "未知艺术家"
@@ -1263,6 +1341,7 @@ void MainWindow::onMediaStatusChanged(
 }
 void MainWindow::onPlaybackStateChanged(
     QMediaPlayer::PlaybackState s) {
+    m_miniControl->setPlaying(s == QMediaPlayer::PlayingState);
     static_cast<IconButton*>(m_btnPlayPause)->setIcon(
         s == QMediaPlayer::PlayingState
             ? IconButton::Pause
@@ -1307,6 +1386,7 @@ void MainWindow::onOpenSettings() {
     m_settingsDlg->setHideOnHover(s.value("hideOnHover",false).toBool());
     m_settingsDlg->setLyricColorSung(s.value("lyricColorSung","#E63248").toString());
     m_settingsDlg->setLyricColorUnsang(s.value("lyricColorUnsang","#F1DDDF").toString());
+    m_settingsDlg->setLyricFontSize(s.value("lyricFontSize", 28).toInt());
     m_settingsDlg->exec();
 }
 void MainWindow::onMusicDirChanged(const QString &dir) {
@@ -1337,7 +1417,9 @@ void MainWindow::onTrayActivated(QSystemTrayIcon::ActivationReason reason) {
             showNormal();
             raise();
             activateWindow();
-        } else {hide();}
+        } else {
+            hide();
+        }
     }
 }
 void MainWindow::onTogglePin() {
@@ -1402,6 +1484,7 @@ void MainWindow::closeEvent(QCloseEvent *e) {
     s.setValue("playMode", (int)m_playMode);
     m_player->stop();
     m_lyricsOverlay->close();
+    m_miniControl->close();
     e->accept();
 }
 void MainWindow::resizeEvent(QResizeEvent *e) {
@@ -1436,7 +1519,6 @@ void MainWindow::mousePressEvent(QMouseEvent *e) {
 }
 void MainWindow::mouseMoveEvent(QMouseEvent *e) {
     if (m_dragging && (e->buttons() & Qt::LeftButton)) {
-        if (isMaximized()) showNormal();
         move(e->globalPosition().toPoint() - m_dragOffset);
         e->accept();
         return;
@@ -1448,10 +1530,23 @@ void MainWindow::mouseReleaseEvent(QMouseEvent *e) {
     QMainWindow::mouseReleaseEvent(e);
 }
 void MainWindow::mouseDoubleClickEvent(QMouseEvent *e) {
-    if (m_titleBar && m_titleBar->geometry().contains(e->pos())) {
-        isMaximized() ? showNormal() : showMaximized();
-        e->accept();
-        return;
-    }
     QMainWindow::mouseDoubleClickEvent(e);
+}
+void MainWindow::editLyricsFile(int row) {
+    if (row < 0 || row >= m_playlist->count())return;
+    TrackItem t =m_playlist->track(row);
+    QString lyricPath =findLyricFile(t.filePath);
+    if (lyricPath.isEmpty()) {
+        QFileInfo fi(t.filePath);
+        QDir dir(!m_lyricsDir.isEmpty()? m_lyricsDir: fi.absolutePath());
+        lyricPath =dir.filePath(fi.fileName() + " - .lrcx");
+        QFile file(lyricPath);
+        if (file.open(QIODevice::WriteOnly)) {
+            QTextStream out(&file);
+            out.setEncoding( QStringConverter::Utf8);
+            out << "[00:00.00]\n";
+            file.close();
+        }
+    }
+    QProcess::startDetached( "notepad.exe",QStringList() << lyricPath);
 }
