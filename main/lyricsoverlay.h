@@ -29,6 +29,7 @@ private:
     void buildFont();
     void animateTo(float endPx, int durationMs);
     void resizeToText(const QString &text);
+    void enforceTopmost();
 private:
     LrcxParser m_parser;
     int m_currentLineIdx = -1;
@@ -56,4 +57,5 @@ private:
     QColor m_colorSung  = QColor("#E63248");
     QColor m_colorUnsang= QColor("#F1DDDF");
     QTimer *m_hoverCheckTimer = nullptr;
+    QTimer *m_topmostTimer    = nullptr;
 };

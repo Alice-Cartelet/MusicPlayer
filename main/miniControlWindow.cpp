@@ -39,28 +39,46 @@ MiniControlWindow::MiniControlWindow( QWidget *parent) : QWidget(parent)
     QWidget *titleWrap = new QWidget;
     titleWrap->setFixedHeight(18);
     QHBoxLayout *titleRoot = new QHBoxLayout(titleWrap);
-    titleRoot->setContentsMargins( 0, 0, 0, 0 );
+    titleRoot->setContentsMargins(0, 0, 0, 0);
     m_titleContainer = new QWidget;
-    m_titleContainer->setFixedSize( 190, 18 );
-    m_titleLabel1 = new QLabel( m_titleContainer );
-    m_titleLabel2 = new QLabel( m_titleContainer );
+    m_titleContainer->setFixedSize(190, 18);
+    m_titleLabel1 = new QLabel(m_titleContainer);
+    m_titleLabel2 = new QLabel(m_titleContainer);
     QString titleCss = R"( QLabel
-    {
-        color:rgba(25,25,30,230);
-        font-size:11px;
-        font-weight:700;
-        background:transparent;
-    }
-    )";
-    m_titleLabel1->setStyleSheet( titleCss );
-    m_titleLabel2->setStyleSheet( titleCss );
+{
+    color:rgba(25,25,30,230);
+    font-size:11px;
+    font-weight:700;
+    background:transparent;
+}
+)";
+    m_titleLabel1->setStyleSheet(titleCss);
+    m_titleLabel2->setStyleSheet(titleCss);
     QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect;
     shadow->setBlurRadius(10);
-    shadow->setColor( QColor(255,255,255,140) );
+    shadow->setColor(QColor(255,255,255,140));
     shadow->setOffset(0,1);
-    m_titleLabel1->setGraphicsEffect( shadow );
-    titleRoot->addWidget( m_titleContainer );
+    m_titleLabel1->setGraphicsEffect(shadow);
+    titleRoot->addWidget(m_titleContainer);
     titleRoot->addStretch();
+    m_btnExpand = new QPushButton("↖", m_titleContainer);
+    m_btnExpand->setGeometry(0, -1, 20, 20);
+    m_btnExpand->setCursor(Qt::PointingHandCursor);
+    m_btnExpand->raise();
+    m_btnExpand->setStyleSheet(R"( QPushButton
+{
+    background:transparent;
+    border:none;
+    color:rgba(20,20,25,170);
+    font-size:13px;
+    font-weight:bold;
+}
+QPushButton:hover
+{
+    color:white;
+}
+)");
+    connect( m_btnExpand, &QPushButton::clicked, this, &MiniControlWindow::expandClicked );
     root->addWidget(titleWrap);
     m_btnPrev = new MiniconButton( MiniconButton::Prev );
     m_btnPlay = new MiniconButton( MiniconButton::Play );
@@ -73,6 +91,12 @@ MiniControlWindow::MiniControlWindow( QWidget *parent) : QWidget(parent)
     btnLayout->addWidget( m_btnNext );
     btnLayout->addStretch();
     root->addLayout(btnLayout);
+    m_progressBarBg = new QWidget(this);
+    m_progressBarBg->setGeometry( 12, height() - 6, width() - 24, 2 );
+    m_progressBarBg->setStyleSheet(R"( background:rgba(255,255,255,35);border-radius:1px;)");
+    m_progressBarFill = new QWidget(m_progressBarBg);
+    m_progressBarFill->setGeometry(0,0,0,2);
+    m_progressBarFill->setStyleSheet(R"( background:rgba(255,255,255,180);border-radius:1px;)");
     connect( m_btnPrev, &QPushButton::clicked, this, &MiniControlWindow::prevClicked );
     connect( m_btnPlay, &QPushButton::clicked, this, &MiniControlWindow::playPauseClicked );
     connect( m_btnNext, &QPushButton::clicked, this, &MiniControlWindow::nextClicked );
@@ -96,6 +120,24 @@ MiniControlWindow::MiniControlWindow( QWidget *parent) : QWidget(parent)
     move( s.value( "miniControlPos", QPoint(100,100) ).toPoint() );
     setWindowOpacity( m_opacity / 100.0 );
 }
+void MiniControlWindow::setProgress(qint64 pos,qint64 dur)
+{
+    m_position = pos;
+    m_duration = dur;
+    if(!m_progressBarBg || dur <= 0) return;
+    int w = m_progressBarBg->width();
+    double ratio = double(pos) / double(dur);
+    int fillW = qMax(2,int(w * ratio));
+    m_progressBarFill->setGeometry( 0, 0, fillW, m_progressBarBg->height() );
+}
+void MiniControlWindow::resizeEvent(QResizeEvent *e)
+{
+    QWidget::resizeEvent(e);
+    if(m_progressBarBg)
+    {
+        m_progressBarBg->setGeometry( 12, height() - 6, width() - 24, 2 );
+    }
+}
 void MiniControlWindow::setPlaying( bool playing)
 {
     m_playing = playing;
@@ -104,7 +146,7 @@ void MiniControlWindow::setPlaying( bool playing)
 void MiniControlWindow::setOpacityValue( int value)
 {
     m_opacity = value;
-    setWindowOpacity( value / 100.0 );
+    setWindowOpacity( value / 255.0 );
 }
 void MiniControlWindow::setCover( const QPixmap &pix)
 {

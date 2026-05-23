@@ -31,6 +31,8 @@
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QCursor>
+#include <QFileDialog>
+#include "id3v2helper.h"
 class BlurredBackground : public QWidget
 {
 public: explicit BlurredBackground(QWidget *p = nullptr) : QWidget(p)
@@ -369,60 +371,189 @@ private: void recalc()
     bool m_scrolling;
 }
 ;
+// ── 残影数据 ────────────────────────────────────────────────
+struct TrailEntry {
+    QPointF pos;   // 视口坐标
+    float   alpha; // 当前不透明度 0~1
+};
+
+// ── 带残影的 ListView ────────────────────────────────────────
+class TrailListView : public QListView
+{
+public:
+    explicit TrailListView(QWidget *p = nullptr) : QListView(p)
+    {
+        setMouseTracking(true);
+        m_fadeTimer = new QTimer(this);
+        m_fadeTimer->setInterval(16);
+        connect(m_fadeTimer, &QTimer::timeout, this, [this]() {
+            bool any = false;
+            for (auto &e : m_trails) {
+                e.alpha -= 0.045f;
+                if (e.alpha > 0.f) any = true;
+            }
+            m_trails.erase(
+                std::remove_if(m_trails.begin(), m_trails.end(),
+                               [](const TrailEntry &e){ return e.alpha <= 0.f; }),
+                m_trails.end());
+            viewport()->update();
+            if (!any) m_fadeTimer->stop();
+        });
+    }
+
+    // 供 delegate 读取残影列表
+    const QVector<TrailEntry> &trails() const { return m_trails; }
+
+protected:
+    void mouseMoveEvent(QMouseEvent *e) override {
+        QListView::mouseMoveEvent(e);
+#if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
+        QPointF vpos = e->position();
+#else
+        QPointF vpos = e->localPos();
+#endif
+        // 与上一个残影距离够大才记录，避免静止时堆积
+        if (m_trails.isEmpty() ||
+            (vpos - m_trails.last().pos).manhattanLength() > 6.0)
+        {
+            TrailEntry te;
+            te.pos   = vpos;
+            te.alpha = 0.55f;
+            m_trails.append(te);
+            if (m_trails.size() > 18) m_trails.removeFirst();
+            if (!m_fadeTimer->isActive()) m_fadeTimer->start();
+        }
+    }
+
+    void leaveEvent(QEvent *e) override {
+        QListView::leaveEvent(e);
+        // 鼠标离开时让残影继续淡出即可，不强制清空
+    }
+
+private:
+    QVector<TrailEntry> m_trails;
+    QTimer             *m_fadeTimer = nullptr;
+};
+
+// ── Delegate ─────────────────────────────────────────────────
 class TrackDelegate : public QStyledItemDelegate
 {
-public: explicit TrackDelegate(QObject *p = nullptr) : QStyledItemDelegate(p)
-    {
-    }
-    void paint(QPainter *p, const QStyleOptionViewItem &opt, const QModelIndex &idx) const override
+public:
+    explicit TrackDelegate(QObject *p = nullptr) : QStyledItemDelegate(p) {}
+
+    // 当前播放行，由 MainWindow 设置
+    void setPlayingRow(int row) { m_playingRow = row; }
+    int  playingRow() const     { return m_playingRow; }
+
+    void paint(QPainter *p, const QStyleOptionViewItem &opt,
+               const QModelIndex &idx) const override
     {
         p->save();
         p->setRenderHint(QPainter::Antialiasing);
-        bool sel = opt.state & QStyle::State_Selected;
-        bool hov = opt.state & QStyle::State_MouseOver;
+
+        const bool isPlaying = (idx.row() == m_playingRow);
+        const bool sel       = opt.state & QStyle::State_Selected;
+        const bool hov       = opt.state & QStyle::State_MouseOver;
         QRect r = opt.rect;
-        if (!sel && hov)
-        {
-            p->setPen(Qt::NoPen);
+
+        // ── 背景 ──────────────────────────────────────────────
+        p->setPen(Qt::NoPen);
+        if (isPlaying) {
+            // 播放中：紫色渐变背景
+            QLinearGradient g(r.left(), r.top(), r.right(), r.top());
+            g.setColorAt(0.0, QColor(139, 108, 255, 55));
+            g.setColorAt(1.0, QColor(139, 108, 255, 20));
+            p->setBrush(g);
+            p->drawRoundedRect(r.adjusted(2, 1, -2, -1), 8, 8);
+            // 左侧彩色竖线
+            p->setBrush(QColor(139, 108, 255, 220));
+            p->drawRoundedRect(r.adjusted(2, 4, -(r.width()-6), -4), 3, 3);
+        } else if (sel) {
+            // 选中：浅灰
+            p->setBrush(QColor(0, 0, 0, 18));
+            p->drawRoundedRect(r.adjusted(2, 1, -2, -1), 8, 8);
+        } else if (hov) {
             p->setBrush(QColor(0, 0, 0, 10));
             p->drawRoundedRect(r.adjusted(2, 1, -2, -1), 8, 8);
         }
-        QRect editRect(r.right() - 30, r.top(), 30, r.height());
-        QRect favRect(r.right() - 58, r.top(), 28, r.height());
+
+        // ── 残影光点（从父 view 读取） ─────────────────────────
+        if (const auto *tv = dynamic_cast<const TrailListView*>(
+                opt.widget ? opt.widget->parent() : nullptr))
+        {
+            p->save();
+            p->setClipRect(r);
+            for (const TrailEntry &te : tv->trails()) {
+                if (!r.contains(te.pos.toPoint())) continue;
+                float a = te.alpha;
+                // 外光晕
+                QRadialGradient rg(te.pos, 22);
+                rg.setColorAt(0.0, QColor(180, 150, 255, int(a * 80)));
+                rg.setColorAt(0.5, QColor(139, 108, 255, int(a * 30)));
+                rg.setColorAt(1.0, Qt::transparent);
+                p->setPen(Qt::NoPen);
+                p->setBrush(rg);
+                p->drawEllipse(te.pos, 22.0, 22.0);
+                // 亮核
+                QRadialGradient core(te.pos, 5);
+                core.setColorAt(0.0, QColor(255, 255, 255, int(a * 180)));
+                core.setColorAt(1.0, Qt::transparent);
+                p->setBrush(core);
+                p->drawEllipse(te.pos, 5.0, 5.0);
+            }
+            p->restore();
+        }
+
+        // ── 文字（交给父类） ───────────────────────────────────
         QStyleOptionViewItem o(opt);
-        o.rect = r.adjusted(8, 0, -62, 0);
+        o.rect   = r.adjusted(14, 0, -62, 0);
+        o.state &= ~QStyle::State_Selected;   // 不让 Qt 自己画蓝色选中背景
         o.state &= ~QStyle::State_MouseOver;
         o.state &= ~QStyle::State_HasFocus;
+        // 播放中文字加粗紫色
+        if (isPlaying) {
+            o.palette.setColor(QPalette::Text, QColor("#7a50e0"));
+            o.font.setBold(true);
+        }
         QStyledItemDelegate::paint(p, o, idx);
+
+        // ── 右侧图标 ───────────────────────────────────────────
+        QRect editRect(r.right() - 30, r.top(), 30, r.height());
+        QRect favRect (r.right() - 58, r.top(), 28, r.height());
+
         bool isFav = idx.data(Playlist::FavoriteRole).toBool();
         QFont heartFont = p->font();
         heartFont.setPointSize(13);
         p->setFont(heartFont);
-        if (isFav)
-        {
+        if (isFav) {
             p->setPen(QColor("#e74c6a"));
             p->drawText(favRect, Qt::AlignCenter, "♥");
-        }
-        else
-        {
-            QColor heartColor = hov ? QColor(180, 60, 100, 180) : QColor(0, 0, 0, 80);
-            p->setPen(heartColor);
+        } else {
+            p->setPen(hov ? QColor(180, 60, 100, 180) : QColor(0, 0, 0, 80));
             p->drawText(favRect, Qt::AlignCenter, "♡");
         }
-        QColor editColor = sel ? QColor(0, 0, 0, 230) : hov ? QColor(0, 0, 0, 220) : QColor(0, 0, 0, 170);
+
         QFont editFont = p->font();
         editFont.setPointSize(14);
         p->setFont(editFont);
-        p->setPen(editColor);
+        p->setPen(isPlaying ? QColor(139, 108, 255, 200)
+                  : sel     ? QColor(0, 0, 0, 230)
+                  : hov     ? QColor(0, 0, 0, 220)
+                            : QColor(0, 0, 0, 170));
         p->drawText(editRect, Qt::AlignCenter, "✎");
+
         p->restore();
     }
+
     QSize sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const override
     {
         return QSize(0, 30);
     }
-}
-;
+
+private:
+    int m_playingRow = -1;
+};
+
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
     setWindowFlags(Qt::FramelessWindowHint | Qt::Window);
@@ -441,6 +572,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
             }
             );
     m_miniControl = new MiniControlWindow;
+    connect(m_miniControl,&MiniControlWindow::expandClicked, this,[this]
+            {
+                showNormal();
+                raise();
+                activateWindow();
+            }
+            );
     connect(m_miniControl, &MiniControlWindow::playPauseClicked, this, &MainWindow::onPlayPause);
     connect(m_miniControl, &MiniControlWindow::prevClicked, this, &MainWindow::onPrevious);
     connect(m_miniControl, &MiniControlWindow::nextClicked, this, &MainWindow::onNext);
@@ -584,8 +722,9 @@ void MainWindow::setupPlayer()
     m_player = new QMediaPlayer(this);
     m_audio = new QAudioOutput(this);
     m_playlist = new Playlist(this);
-    m_playlist->setPlaylistManager(m_plManager);
-    m_player->setAudioOutput(m_audio);
+    m_playlist->setPlaylistManager( m_plManager);
+    m_playlist->setSortable( false);
+    m_player->setAudioOutput( m_audio);
     m_audio->setVolume(0.7f);
     connect(m_player, &QMediaPlayer::mediaStatusChanged, this, &MainWindow::onMediaStatusChanged);
     connect(m_player, &QMediaPlayer::playbackStateChanged, this, &MainWindow::onPlaybackStateChanged);
@@ -603,11 +742,13 @@ void MainWindow::setupPlayer()
                         QPixmap pix = QPixmap::fromImage(img);
                         m_miniControl->setCover(pix);
                         static_cast<CoverLabel*>(m_lblCover)->setCoverPixmap(pix);
+                        if (m_btnAddCover) m_btnAddCover->hide();
                         return;
                     }
                 }
                 static_cast<CoverLabel*>(m_lblCover)->clearCover();
                 m_lblCover->setText("♪");
+                if (m_btnAddCover) m_btnAddCover->show();
             }
             );
 }
@@ -680,9 +821,22 @@ void MainWindow::setupUI()
     m_lblCover->setFixedSize(170, 170);
     m_lblCover->setAlignment(Qt::AlignCenter);
     m_lblCover->setText("♪");
+    auto *coverContainer = new QWidget;
+    coverContainer->setFixedSize(170, 170);
+    coverContainer->setAttribute(Qt::WA_TransparentForMouseEvents, false);
+    m_lblCover->setParent(coverContainer);
+    m_lblCover->move(0, 0);
+    m_btnAddCover = new QPushButton("＋", coverContainer);
+    m_btnAddCover->setObjectName("addCoverBtn");
+    m_btnAddCover->setFixedSize(36, 36);
+    m_btnAddCover->move(170 - 36 - 6, 170 - 36 - 6);
+    m_btnAddCover->setToolTip("为此歌曲添加封面图片");
+    m_btnAddCover->setCursor(Qt::PointingHandCursor);
+    m_btnAddCover->show();
+    connect(m_btnAddCover, &QPushButton::clicked, this, &MainWindow::onAddCoverImage);
     QHBoxLayout *cr = new QHBoxLayout;
     cr->addStretch();
-    cr->addWidget(m_lblCover);
+    cr->addWidget(coverContainer);
     cr->addStretch();
     lv->addLayout(cr);
     lv->addSpacing(90);
@@ -777,12 +931,19 @@ void MainWindow::setupUI()
     hh->addWidget(m_btnShuffle);
     hh->addSpacing(8);
     hh->addWidget(m_btnSettings);
-    m_listView = new QListView;
+    m_listView = new TrailListView;
     m_listView->setMouseTracking(true);
-    m_listView->setObjectName("playlistView");
-    m_listView->setItemDelegate(new TrackDelegate(this));
-    m_listView->setModel(m_playlist);
-    m_listView->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_listView->setObjectName( "playlistView");
+    m_trackDelegate = new TrackDelegate(this);
+    m_listView->setItemDelegate( m_trackDelegate);
+    m_listView->setModel( m_playlist);
+    m_listView->setSelectionMode( QAbstractItemView:: SingleSelection);
+    m_listView->setDragEnabled( true);
+    m_listView->setAcceptDrops( true);
+    m_listView->setDropIndicatorShown( true);
+    m_listView->setDragDropMode( QAbstractItemView:: InternalMove);
+    m_listView->setDefaultDropAction( Qt::MoveAction);
+    m_listView->setContextMenuPolicy( Qt::CustomContextMenu);
     rv->addWidget(hdr);
     rv->addWidget(m_listView, 1);
     root->addWidget(left);
@@ -801,12 +962,14 @@ void MainWindow::setupUI()
                         QPixmap pix = QPixmap::fromImage(img);
                         static_cast<CoverLabel*>(m_lblCover)->setCoverPixmap(pix);
                         static_cast<BlurredBackground*>(m_bgCover)->setSourcePixmap(pix);
+                        if (m_btnAddCover) m_btnAddCover->hide();
                         return;
                     }
                 }
                 static_cast<CoverLabel*>(m_lblCover)->clearCover();
                 m_lblCover->setText("♪");
                 static_cast<BlurredBackground*>(m_bgCover)->clearSource();
+                if (m_btnAddCover) m_btnAddCover->show();
             }
             );
     connect(m_btnSettings, &QPushButton::clicked, this, &MainWindow::onOpenSettings);
@@ -868,6 +1031,29 @@ void MainWindow::setupUI()
                     color = "#A172D0";
                 }
                 m_btnShuffle->setStyleSheet( QString("background:%1;border:1px solid rgba(0,0,0,0.12);" "border-radius:8px;padding:5px 12px;color:white;").arg(color) );
+            }
+            );
+    connect( m_playlist, &QAbstractItemModel::rowsMoved, this, [this]
+            {
+                if( m_currentPlaylistName =="全部音乐" )
+                {
+                    return;
+                }
+                m_plManager->setTracks( m_currentPlaylistName, m_playlist->filePaths() );
+                if( m_currentIndex>=0 && m_currentIndex< m_playlist->count() )
+                {
+                    QString currentPath= m_playlist->track( m_currentIndex ).filePath;
+                    for( int i=0;
+                         i<m_playlist->count();
+                         i++ )
+                    {
+                        if( m_playlist ->track(i) .filePath == currentPath )
+                        {
+                            m_currentIndex=i;
+                            break;
+                        }
+                    }
+                }
             }
             );
 }
@@ -1038,6 +1224,14 @@ void MainWindow::applyStyleSheet()
         outline:none;
         padding:6px;
     }
+    QListView#playlistView::item:selected
+    {
+        background:transparent;
+    }
+    QListView#playlistView::item:selected:active
+    {
+        background:transparent;
+    }
     QScrollBar:vertical
     {
         background:transparent;
@@ -1051,6 +1245,19 @@ void MainWindow::applyStyleSheet()
     QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical
     {
         height:0;
+    }
+    QPushButton#addCoverBtn
+    {
+        background:rgba(139,108,255,0.75);
+        border:none;
+        border-radius:18px;
+        color:white;
+        font-size:18px;
+        font-weight:bold;
+    }
+    QPushButton#addCoverBtn:hover
+    {
+        background:rgba(139,108,255,1.0);
     }
     )");
 }
@@ -1100,7 +1307,8 @@ void MainWindow::showPlaylistSwitchMenu()
                     {
                         currentFile = m_playlist->track(m_currentIndex).filePath;
                     }
-                    m_currentPlaylistName = "全部音乐";
+                    m_currentPlaylistName="全部音乐";
+                    m_playlist->setSortable( false);
                     QStringList audioFiles;
                     QDirIterator it( m_musicDir, QDir::Files, QDirIterator::Subdirectories );
                     while (it.hasNext())
@@ -1169,7 +1377,8 @@ void MainWindow::showPlaylistSwitchMenu()
                     {
                         currentFile = m_playlist->track(m_currentIndex).filePath;
                     }
-                    m_currentPlaylistName = name;
+                    m_currentPlaylistName=name;
+                    m_playlist->setSortable( true);
                     QList<TrackItem> tracks;
                     int keepIndex = -1;
                     for (const QString &path : files)
@@ -1368,6 +1577,102 @@ void MainWindow::showPlaylistSwitchMenu()
                     }
                     );
         }
+        QMenu *renMenu = menu.addMenu("✎  重命名歌单");
+        renMenu->setStyleSheet( menu.styleSheet() );
+        for (const QString &name : all)
+        {
+            QAction *a = renMenu->addAction(name);
+            connect(a, &QAction::triggered, this, [this, name]
+                    {
+                        QDialog dlg(this);
+                        dlg.setWindowFlags( Qt::FramelessWindowHint | Qt::Dialog );
+                        dlg.setAttribute( Qt::WA_TranslucentBackground );
+                        dlg.resize(360, 180);
+                        QVBoxLayout *root = new QVBoxLayout(&dlg);
+                        root->setContentsMargins(0, 0, 0, 0);
+                        auto *bg = new BlurredBackground;
+                        auto *mainBg = static_cast<BlurredBackground*>( m_bgCover );
+                        bg->setSourcePixmap( mainBg->grab() );
+                        root->addWidget(bg);
+                        QVBoxLayout *lay = new QVBoxLayout(bg);
+                        lay->setContentsMargins(24, 24, 24, 24);
+                        QLabel *title = new QLabel("重命名歌单");
+                        QLineEdit *edit = new QLineEdit;
+                        edit->setText(name);
+                        edit->selectAll();
+                        QHBoxLayout *btns = new QHBoxLayout;
+                        QPushButton *okBtn = new QPushButton("确定");
+                        QPushButton *cancelBtn = new QPushButton("取消");
+                        btns->addStretch();
+                        btns->addWidget(cancelBtn);
+                        btns->addWidget(okBtn);
+                        lay->addWidget(title);
+                        lay->addSpacing(12);
+                        lay->addWidget(edit);
+                        lay->addStretch();
+                        lay->addLayout(btns);
+                        bg->setStyleSheet(R"( QWidget
+                {
+                    background:rgba(255,255,255,255);
+                    border-radius:18px;
+                }
+                QLabel
+                {
+                    color:#1a1a2e;
+                    font-size:14px;
+                    font-weight:bold;
+                    background:transparent;
+                }
+                QLineEdit
+                {
+                    background:rgba(255,255,255,230);
+                    border:1px solid rgba(0,0,0,0.10);
+                    border-radius:10px;
+                    padding:8px 12px;
+                    color:#1a1a2e;
+                    font-size:13px;
+                    selection-background-color:#8b6cff;
+                }
+                QPushButton
+                {
+                    background:rgba(255,255,255,190);
+                    border:1px solid rgba(0,0,0,0.08);
+                    border-radius:10px;
+                    padding:8px 16px;
+                    color:#1a1a2e;
+                    font-size:13px;
+                }
+                QPushButton:hover
+                {
+                    background:rgba(255,255,255,230);
+                }
+                )");
+                        connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
+                        connect(okBtn, &QPushButton::released, &dlg, [&]()
+                                {
+                                    QString text = edit->text().trimmed();
+                                    if (text.isEmpty()) return;
+                                    dlg.setProperty("newName", text);
+                                    dlg.done(QDialog::Accepted);
+                                }
+                                );
+                        connect(edit, &QLineEdit::returnPressed, okBtn, &QPushButton::click);
+                        if (dlg.exec() != QDialog::Accepted) return;
+                        QString newName = dlg.property("newName").toString().trimmed();
+                        if (newName.isEmpty() || newName == name) return;
+                        if (!m_plManager->renamePlaylist(name, newName))
+                        {
+                            QMessageBox::warning(this, "提示", QString("歌单「%1」已存在").arg(newName));
+                            return;
+                        }
+                        if (m_currentPlaylistName == name)
+                        {
+                            m_currentPlaylistName = newName;
+                            m_btnPlaylistSwitch->setText(newName + " ▾");
+                        }
+                    }
+                    );
+        }
     }
     menu.exec( m_btnPlaylistSwitch->mapToGlobal( QPoint( 0, m_btnPlaylistSwitch->height() ) ) );
 }
@@ -1496,6 +1801,7 @@ void MainWindow::onDurationChanged(qint64 d)
 }
 void MainWindow::onPositionChanged(qint64 pos)
 {
+    m_miniControl->setProgress( pos, m_player->duration() );
     if (!m_seeking)
     {
         m_seekBar->setValue((int)pos);
@@ -1635,11 +1941,11 @@ void MainWindow::mouseDoubleClickEvent(QMouseEvent *e)
 }
 void MainWindow::savePlaybackState()
 {
-    if (m_currentIndex < 0) return;
+    if (m_currentIndex < 0 || m_currentIndex >= m_playlist->count()) return;
     QSettings s("MusicPlayer", "MusicPlayer");
-    s.setValue("lastIndex", m_currentIndex);
-    s.setValue("lastPosition", m_player->position());
-    s.setValue("currentPlaylist", m_currentPlaylistName);
+    s.setValue( "lastFile", m_playlist->track(m_currentIndex).filePath );
+    s.setValue( "lastPosition", m_player->position() );
+    s.setValue( "currentPlaylist", m_currentPlaylistName );
 }
 void MainWindow::restorePlaybackState()
 {
@@ -1653,7 +1959,8 @@ void MainWindow::restorePlaybackState()
     case Shuffle: m_btnShuffle->setText("乱序"); color = "#29AFD4"; break;
     }
     m_btnShuffle->setStyleSheet( QString("background:%1;border:1px solid rgba(0,0,0,0.12);" "border-radius:8px;padding:5px 12px;color:white;").arg(color) );
-    int index = s.value("lastIndex", -1).toInt();
+    QString lastFile = s.value("lastFile").toString();
+    int index = -1;
     qint64 pos = s.value("lastPosition", 0).toLongLong();
     QString playlistName =s.value("currentPlaylist", "全部音乐").toString();
     if (playlistName == "全部音乐")
@@ -1683,6 +1990,14 @@ void MainWindow::restorePlaybackState()
         m_btnPlaylistSwitch->setText( playlistName + " ▾" );
         m_currentPlaylistName = playlistName;
     }
+    for (int i = 0; i < m_playlist->count(); ++i)
+    {
+        if (m_playlist->track(i).filePath == lastFile)
+        {
+            index = i;
+            break;
+        }
+    }
     if (index >= 0 && index < m_playlist->count())
     {
         m_currentIndex = index;
@@ -1694,6 +2009,7 @@ void MainWindow::restorePlaybackState()
         setWindowTitle(t.title + " - 音乐播放器 by AliceCartelet");
         updateTitleBarTitle(t.title + " - 音乐播放器 by AliceCartelet");
         m_listView->setCurrentIndex(m_playlist->index(index));
+        if (m_trackDelegate) m_trackDelegate->setPlayingRow(index);
         m_lyricsOverlay->loadLyrics(findLyricFile(t.filePath));
         connect(m_player, &QMediaPlayer::mediaStatusChanged, this, [this, pos](QMediaPlayer::MediaStatus status)
                 {
@@ -1826,6 +2142,8 @@ void MainWindow::playTrack(int index)
     setWindowTitle(t.title + " - 音乐播放器 - AliceCartelet");
     updateTitleBarTitle(t.title + " - 音乐播放器 - AliceCartelet");
     m_listView->setCurrentIndex(m_playlist->index(index));
+    if (m_trackDelegate) m_trackDelegate->setPlayingRow(index);
+    m_listView->viewport()->update();
     m_lyricsOverlay->loadLyrics(findLyricFile(t.filePath));
     if (m_showLyrics) m_lyricsOverlay->show();
 }
@@ -1865,4 +2183,47 @@ void MainWindow::editLyricsFile(int row)
         }
     }
     QProcess::startDetached("notepad.exe", QStringList() << lyricPath);
+}
+void MainWindow::onAddCoverImage()
+{
+    if (m_currentIndex < 0 || m_currentIndex >= m_playlist->count()) return;
+    QString filePath = m_playlist->track(m_currentIndex).filePath;
+    if (!filePath.endsWith(".mp3", Qt::CaseInsensitive))
+    {
+        QMessageBox::information(this, "提示", "目前只支持为 MP3 文件添加封面");
+        return;
+    }
+    QString imgPath = QFileDialog::getOpenFileName( this, "选择封面图片", QString(), "图片文件 (*.jpg *.jpeg *.png)" );
+    if (imgPath.isEmpty()) return;
+    QFile imgFile(imgPath);
+    if (!imgFile.open(QIODevice::ReadOnly))
+    {
+        QMessageBox::warning(this, "错误", "无法读取图片文件");
+        return;
+    }
+    QByteArray imgData = imgFile.readAll();
+    imgFile.close();
+    if (imgData.isEmpty()) return;
+    QString mime = imgPath.endsWith(".png", Qt::CaseInsensitive) ? "image/png" : "image/jpeg";
+    qint64 pos = m_player->position();
+    m_player->stop();
+    m_player->setSource(QUrl());
+    bool ok = Id3v2Helper::writeCover(filePath, imgData, mime);
+    m_player->setSource(QUrl::fromLocalFile(filePath));
+    m_player->play();
+    m_player->setPosition(pos);
+    if (!ok)
+    {
+        QMessageBox::warning(this, "错误", "写入封面失败，文件可能无法写入");
+        return;
+    }
+    QPixmap pix;
+    pix.loadFromData(imgData);
+    if (!pix.isNull())
+    {
+        static_cast<CoverLabel*>(m_lblCover)->setCoverPixmap(pix);
+        static_cast<BlurredBackground*>(m_bgCover)->setSourcePixmap(pix);
+        m_miniControl->setCover(pix);
+        if (m_btnAddCover) m_btnAddCover->hide();
+    }
 }

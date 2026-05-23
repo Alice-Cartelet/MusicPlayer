@@ -6,6 +6,7 @@ TEMPLATE = app
 app.rc
 app.ico
 SOURCES += \
+    id3v2helper.cpp \
     main.cpp \
     mainwindow.cpp \
     miniControlWindow.cpp \
@@ -18,6 +19,7 @@ SOURCES += \
 
 HEADERS += \
     app.rc \
+    id3v2helper.h \
     mainwindow.h \
     playlistmanager.h \
     miniconbutton.h \

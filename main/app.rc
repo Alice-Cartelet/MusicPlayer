@@ -1,36 +1,32 @@
+#pragma code_page(936)
 #include <windows.h>
 #include "version.h"
 IDI_ICON1 ICON "app.ico"
-VS_VERSION_INFO VERSIONINFO
-    FILEVERSION APP_VERSION_NUM
-    PRODUCTVERSION APP_VERSION_NUM
-    FILEFLAGSMASK 0x3fL
+    VS_VERSION_INFO VERSIONINFO
+        FILEVERSION APP_VERSION_NUM
+            PRODUCTVERSION APP_VERSION_NUM
+                FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
- FILEFLAGS 0x1L
+    FILEFLAGS 0x1L
 #else
- FILEFLAGS 0x0L
+    FILEFLAGS 0x0L
 #endif
- FILEOS 0x40004L
- FILETYPE 0x1L
- FILESUBTYPE 0x0L
-BEGIN
+    FILEOS 0x40004L
+    FILETYPE 0x1L
+    FILESUBTYPE 0x0L
+    BEGIN
     BLOCK "StringFileInfo"
     BEGIN
-        BLOCK "080404B0"
-        BEGIN
-            VALUE "CompanyName",      "AliceCartelet"
-            VALUE "FileDescription",  "Music Player"
-            VALUE "FileVersion",      APP_VERSION
-            VALUE "InternalName",     "MusicPlayer"
-            VALUE "LegalCopyright",   "Copyright (C) 2026 AliceCartelet"
-            VALUE "OriginalFilename", "MusicPlayer.exe"
-            VALUE "ProductName",      "MusicPlayer"
-            VALUE "ProductVersion",   APP_VERSION
-            VALUE "Publisher",        "AliceCartelet"
-        END
+    BLOCK "080404B0"
+    BEGIN
+    VALUE "FileDescription", "¼«¼ò×ÀÃæÒôÀÖ²¥·ÅÆ÷"
+    VALUE "ProductVersion",  APP_VERSION
+    VALUE "ProductName", "MusicPlayer"
+    VALUE "LegalCopyright",  "Copyright (C) 2026 AliceCartelet"
     END
+        END
     BLOCK "VarFileInfo"
     BEGIN
-        VALUE "Translation", 0x804, 1200
+    VALUE "Translation", 0x0804, 1200
     END
-END
+    END

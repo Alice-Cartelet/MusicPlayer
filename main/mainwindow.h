@@ -21,6 +21,7 @@
 #include "minicontrolwindow.h"
 class MarqueeLabel;
 class CoverLabel;
+class TrackDelegate;
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -52,6 +53,7 @@ private slots: void onPlayPause();
     void onPlaylistSwitchClicked();
     void onToggleFavorite(int trackRow);
     void onAddToPlaylist(const QString &playlistName, int trackRow);
+    void onAddCoverImage();
 private: void setupPlayer();
     void setupUI();
     void applyStyleSheet();
@@ -103,10 +105,12 @@ private: QMediaPlayer *m_player = nullptr;
     QPushButton *m_btnPlayPause = nullptr;
     QPushButton *m_btnNext = nullptr;
     QListView *m_listView = nullptr;
+    TrackDelegate *m_trackDelegate = nullptr;
     QLabel *m_lblStatus = nullptr;
     QPushButton *m_btnSettings = nullptr;
     QPushButton *m_btnShuffle = nullptr;
     QPushButton *m_btnPlaylistSwitch = nullptr;
+    QPushButton *m_btnAddCover = nullptr;
     LyricsOverlay *m_lyricsOverlay = nullptr;
     SettingsDialog *m_settingsDlg = nullptr;
     MiniControlWindow *m_miniControl = nullptr;
