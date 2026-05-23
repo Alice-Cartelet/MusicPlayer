@@ -3,8 +3,9 @@
 ![Qt](https://img.shields.io/badge/Qt-%23217346.svg?style=for-the-badge&logo=Qt&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)
 
-基于 Qt 6 开发的简洁本地音乐播放器，有半透明磨砂效果，功能极简，只有附加桌面歌词显示功能。
-<img width="1311" height="1058" alt="屏幕截图 2026-05-20 101628" src="https://github.com/user-attachments/assets/a53da1f1-3330-468c-9730-32a7089bf7e0" />
+基于 Qt 6 开发的简洁本地音乐播放器，有半透明磨砂效果，功能极简？越来越大了。有附加桌面歌词显示功能。
+<img width="1381" height="1008" alt="屏幕截图 2026-05-20 194615" src="https://github.com/user-attachments/assets/312a05e2-8a98-480e-bdc3-5e48236ab025" />
+
 
 
 ---
@@ -59,7 +60,7 @@
   * 自动记录播放进度与音量。
   * 下次启动后可继续上次播放位置。
 
-* ⚡ **细节优化**
+* ⚡ **细节优化与更新**
 
   * Marquee 滚动长标题。
   * 平滑动画与透明渐变。
@@ -72,6 +73,7 @@
   * 新增添加可以改变桌面歌词大小的功能。
   * 新增设置创建一个小控制窗，这个窗口将永远处于最上层避免被覆盖，并且可以修改其透明度。
   * 新增添加歌词编辑功能，在主界面最右侧✏按钮可编辑歌词，没有歌词文件时将创建。
+  * 新增创建歌单工具，你可以建立自己的播放歌单。
   * 高 DPI 显示优化。
 
 ---
@@ -80,7 +82,7 @@
 
 | 主播放界面 | 修改界面 |
 | :---: | :---: |
-| <img width="1311" height="1058" alt="屏幕截图 2026-05-20 101628" src="https://github.com/user-attachments/assets/a53da1f1-3330-468c-9730-32a7089bf7e0" /> | <img width="1232" height="1078" alt="屏幕截图 2026-05-20 101247" src="https://github.com/user-attachments/assets/75134249-fca6-49fe-aa0e-1967ac4749dd" /> |
+| <img width="1381" height="1008" alt="屏幕截图 2026-05-20 194615" src="https://github.com/user-attachments/assets/312a05e2-8a98-480e-bdc3-5e48236ab025" /> | <img width="1232" height="1078" alt="屏幕截图 2026-05-20 101247" src="https://github.com/user-attachments/assets/75134249-fca6-49fe-aa0e-1967ac4749dd" /> |
 | *播放器主界面截图* | *修改界面* |
 
 ---
