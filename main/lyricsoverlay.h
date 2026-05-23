@@ -14,6 +14,7 @@ public:
     bool lyricsVisible() const;
     void setHideOnHover(bool v);
     void setFontSize(int size);
+    void setFontFamily(const QString &family);
     void setColors(const QString &sung, const QString &unsang);
 signals:
     void closeRequested();
@@ -36,6 +37,7 @@ private:
     QString m_lineText;
     QFont m_font;
     int m_fontSize = 28;
+    QString m_fontFamily = "Microsoft YaHei";
     QVector<float> m_charPixelsF;
     float m_totalW    = 0.f;
     int   m_lineX0    = 0;
@@ -54,8 +56,8 @@ private:
     int   m_anchorCenterX = -1;
     int   m_anchorY       = -1;
     bool  m_hideOnHover   = false;
-    QColor m_colorSung  = QColor("#E63248");
-    QColor m_colorUnsang= QColor("#F1DDDF");
+    QColor m_colorSung   = QColor("#E63248");
+    QColor m_colorUnsang = QColor("#F1DDDF");
     QTimer *m_hoverCheckTimer = nullptr;
     QTimer *m_topmostTimer    = nullptr;
 };

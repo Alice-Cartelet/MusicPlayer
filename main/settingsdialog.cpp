@@ -9,11 +9,13 @@
 #include <QSettings>
 #include <QRegularExpressionValidator>
 #include <QRegularExpression>
+#include <QFontDatabase>
+#include <QMessageBox>
 SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
 {
     setWindowTitle("设置");
     setModal(true);
-    setFixedSize(460, 410);
+    setFixedSize(460, 450);
     QVBoxLayout *root = new QVBoxLayout(this);
     root->setContentsMargins(18, 20, 18, 12);
     root->setSpacing(14);
@@ -54,11 +56,11 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     m_chkMiniControl = new QCheckBox("启用小控制窗");
     m_chkMiniControl->setObjectName("settingsCheck");
     form->addRow("", m_chkMiniControl);
-    m_miniOpacitySlider =new QSlider(Qt::Horizontal);
+    m_miniOpacitySlider = new QSlider(Qt::Horizontal);
     m_miniOpacitySlider->setObjectName("settingsSlider");
     m_miniOpacitySlider->setRange(20, 255);
     m_miniOpacitySlider->setValue(85);
-    form->addRow("小窗透明度：",m_miniOpacitySlider);
+    form->addRow("小窗透明度：", m_miniOpacitySlider);
     m_volSlider = new QSlider(Qt::Horizontal);
     m_volSlider->setObjectName("settingsSlider");
     m_volSlider->setRange(0, 100);
@@ -69,7 +71,34 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     m_lyricFontSlider->setRange(18, 60);
     m_lyricFontSlider->setValue(28);
     form->addRow("歌词字号：", m_lyricFontSlider);
-    auto makeColorRow = [&](QLineEdit *&edt, QLabel *&swatch,const QString &defaultHex) -> QHBoxLayout* {
+    // ── 字体家族选择器 + 导入按钮 ─────────────────────────────────
+    loadSavedFonts();   // 先把已保存的字体文件加载进 QFontDatabase
+    QHBoxLayout *fontRow = new QHBoxLayout;
+    fontRow->setSpacing(8);
+    fontRow->setContentsMargins(0,0,0,0);
+    m_fontCombo = new QFontComboBox;
+    m_fontCombo->setObjectName("fontCombo");
+    m_fontCombo->setEditable(false);
+    m_fontCombo->setCurrentFont(QFont("Microsoft YaHei"));
+    // 如果 naikai 已加载，优先选它
+    {
+        QString naikaiPath = QCoreApplication::applicationDirPath() + "/naikai.ttf";
+        if (QFile::exists(naikaiPath)) {
+            // addApplicationFont 幂等，重复调用返回同一 id
+            int id = QFontDatabase::addApplicationFont(naikaiPath);
+            QStringList fams = QFontDatabase::applicationFontFamilies(id);
+            if (!fams.isEmpty())
+                m_fontCombo->setCurrentFont(QFont(fams.first()));
+        }
+    }
+    m_btnImportFont = new QPushButton("导入字体");
+    m_btnImportFont->setObjectName("browseBtn");
+    m_btnImportFont->setFixedSize(72, 32);
+    fontRow->addWidget(m_fontCombo, 1);
+    fontRow->addWidget(m_btnImportFont);
+    form->addRow("歌词字体：", fontRow);
+    // ─────────────────────────────────────────────────────────────
+    auto makeColorRow = [&](QLineEdit *&edt, QLabel *&swatch, const QString &defaultHex) -> QHBoxLayout* {
         QHBoxLayout *row = new QHBoxLayout;
         row->setSpacing(6);
         row->setContentsMargins(0,0,0,0);
@@ -95,13 +124,15 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     QLabel *lblUnsang = new QLabel("未读");
     lblUnsang->setMinimumWidth(36);
     colorLayout->addWidget(lblSung);
-    colorLayout->addLayout(makeColorRow( m_edtColorSung,m_swatchSung,"#E63248"));
+    colorLayout->addLayout(makeColorRow(m_edtColorSung,   m_swatchSung,   "#E63248"));
     colorLayout->addSpacing(16);
     colorLayout->addWidget(lblUnsang);
-    colorLayout->addLayout(makeColorRow(m_edtColorUnsang,m_swatchUnsang,"#F1DDDF"));
+    colorLayout->addLayout(makeColorRow(m_edtColorUnsang, m_swatchUnsang, "#F1DDDF"));
     form->addRow("歌词颜色：", colorLayout);
     root->addLayout(form);
-   QLabel *aboutLabel = new QLabel( QString( "Version: %1<br>" "GitHub: github.com/Alice-Cartelet" ).arg(QApplication::applicationVersion()) );
+    QLabel *aboutLabel = new QLabel(
+        QString("Version: %1<br>GitHub: github.com/Alice-Cartelet")
+            .arg(QApplication::applicationVersion()));
     aboutLabel->setObjectName("aboutLabel");
     aboutLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
     aboutLabel->setOpenExternalLinks(false);
@@ -112,7 +143,7 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     QVBoxLayout *aboutWrap = new QVBoxLayout;
     aboutWrap->setSpacing(0);
     aboutWrap->addStretch();
-    aboutWrap->addWidget(aboutLabel,0,Qt::AlignRight | Qt::AlignBottom);
+    aboutWrap->addWidget(aboutLabel, 0, Qt::AlignRight | Qt::AlignBottom);
     bottomRow->addLayout(aboutWrap);
     bottomRow->addStretch();
     QHBoxLayout *btns = new QHBoxLayout;
@@ -129,6 +160,7 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     btns->addWidget(m_btnOk);
     root->addLayout(bottomRow);
     applyStyle();
+    // ── 信号连接 ─────────────────────────────────────────────────
     connect(m_btnMusic, &QPushButton::clicked, this, [this] {
         QString d = QFileDialog::getExistingDirectory(this, "选择音乐目录", m_edtMusic->text());
         if (!d.isEmpty()) m_edtMusic->setText(d);
@@ -143,73 +175,115 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     connect(m_edtColorUnsang, &QLineEdit::textChanged, this, [this](const QString &t) {
         updateSwatch(m_swatchUnsang, t);
     });
+    connect(m_btnImportFont, &QPushButton::clicked, this, [this] {
+        QStringList files = QFileDialog::getOpenFileNames(
+            this, "选择字体文件", QString(),
+            "字体文件 (*.ttf *.otf *.TTF *.OTF)");
+        if (files.isEmpty()) return;
+        // 读取已保存的字体路径列表
+        QSettings s("MusicPlayer", "MusicPlayer");
+        QStringList saved = s.value("importedFontPaths").toStringList();
+        QString lastFamily;
+        for (const QString &path : files) {
+            if (saved.contains(path)) {
+                // 已经导入过，直接取家族名
+                int id = QFontDatabase::addApplicationFont(path);
+                QStringList families = QFontDatabase::applicationFontFamilies(id);
+                if (!families.isEmpty()) lastFamily = families.first();
+                continue;
+            }
+            int id = QFontDatabase::addApplicationFont(path);
+            if (id == -1) {
+                QMessageBox::warning(this, "导入失败",
+                                     QString("无法加载字体文件：\n%1").arg(path));
+                continue;
+            }
+            QStringList families = QFontDatabase::applicationFontFamilies(id);
+            if (families.isEmpty()) continue;
+            saved << path;
+            lastFamily = families.first();
+        }
+        s.setValue("importedFontPaths", saved);
+        // 刷新 combo 并选中最后导入的字体
+        if (!lastFamily.isEmpty()) {
+            m_fontCombo->setCurrentFont(QFont(lastFamily));
+        }
+    });
     connect(m_btnOk, &QPushButton::clicked, this, [this] {
         QSettings s("MusicPlayer", "MusicPlayer");
-        QString oldMusicDir  = s.value("musicDir").toString();
-        QString oldLyricsDir = s.value("lyricsDir").toString();
-        bool oldShowLyrics   = s.value("showLyrics", false).toBool();
-        int  oldVolume       = s.value("volume", 70).toInt();
-        int oldMiniOpacity   = s.value("miniOpacity",140).toInt();
-        bool oldTray         = s.value("minimizeToTray", false).toBool();
-        bool oldMini         = s.value("enableMiniControl", true).toBool();
-        bool oldHideHover    = s.value("hideOnHover", false).toBool();
-        QString oldSung      = s.value("lyricColorSung",   "#E63248").toString();
-        QString oldUnsang    = s.value("lyricColorUnsang", "#F1DDDF").toString();
-        int oldFontSize = s.value("lyricFontSize", 28).toInt();
-        QString newMusicDir  = m_edtMusic->text();
-        QString newLyricsDir = m_edtLyrics->text();
-        bool newShowLyrics   = m_chkLyrics->isChecked();
-        int  newVolume       = m_volSlider->value();
-        int newMiniOpacity   = m_miniOpacitySlider->value();
-        bool newTray         = m_chkTray->isChecked();
-        bool newMini         = m_chkMiniControl->isChecked();
-        bool newHideHover    = m_chkHideHover->isChecked();
-        QString newSung      = m_edtColorSung->text();
-        QString newUnsang    = m_edtColorUnsang->text();
-        int newFontSize = m_lyricFontSlider->value();
+        QString oldMusicDir   = s.value("musicDir").toString();
+        QString oldLyricsDir  = s.value("lyricsDir").toString();
+        bool    oldShowLyrics = s.value("showLyrics", false).toBool();
+        int     oldVolume     = s.value("volume", 70).toInt();
+        int     oldMiniOpacity= s.value("miniOpacity", 140).toInt();
+        bool    oldTray       = s.value("minimizeToTray", false).toBool();
+        bool    oldMini       = s.value("enableMiniControl", true).toBool();
+        bool    oldHideHover  = s.value("hideOnHover", false).toBool();
+        QString oldSung       = s.value("lyricColorSung",   "#E63248").toString();
+        QString oldUnsang     = s.value("lyricColorUnsang", "#F1DDDF").toString();
+        int     oldFontSize   = s.value("lyricFontSize", 28).toInt();
+        QString oldFontFamily = s.value("lyricFontFamily", "Microsoft YaHei").toString();
+        QString newMusicDir   = m_edtMusic->text();
+        QString newLyricsDir  = m_edtLyrics->text();
+        bool    newShowLyrics = m_chkLyrics->isChecked();
+        int     newVolume     = m_volSlider->value();
+        int     newMiniOpacity= m_miniOpacitySlider->value();
+        bool    newTray       = m_chkTray->isChecked();
+        bool    newMini       = m_chkMiniControl->isChecked();
+        bool    newHideHover  = m_chkHideHover->isChecked();
+        QString newSung       = m_edtColorSung->text();
+        QString newUnsang     = m_edtColorUnsang->text();
+        int     newFontSize   = m_lyricFontSlider->value();
+        QString newFontFamily = m_fontCombo->currentFont().family();
         if (newSung.length()   != 7) newSung   = oldSung;
         if (newUnsang.length() != 7) newUnsang = oldUnsang;
-        s.setValue("musicDir",         newMusicDir);
-        s.setValue("lyricsDir",        newLyricsDir);
-        s.setValue("showLyrics",       newShowLyrics);
-        s.setValue("volume",           newVolume);
-        s.setValue("miniOpacity",      newMiniOpacity);
-        s.setValue("minimizeToTray",   newTray);
-        s.setValue("enableMiniControl",newMini);
-        s.setValue("hideOnHover",      newHideHover);
-        s.setValue("lyricColorSung",   newSung);
-        s.setValue("lyricColorUnsang", newUnsang);
-        s.setValue("lyricFontSize",    newFontSize);
-        if (oldMusicDir   != newMusicDir)   emit musicDirChanged(newMusicDir);
-        if (oldLyricsDir  != newLyricsDir)  emit lyricsDirChanged(newLyricsDir);
-        if (oldShowLyrics != newShowLyrics) emit showLyricsChanged(newShowLyrics);
-        if (oldVolume     != newVolume)     emit volumeChanged(newVolume / 100.f);
-        if (oldMiniOpacity!= newMiniOpacity)emit miniOpacityChanged(newMiniOpacity);
-        if (oldTray       != newTray)       emit minimizeToTrayChanged(newTray);
-        if (oldMini       != newMini)       emit miniControlChanged(newMini);
-        if (oldHideHover  != newHideHover)  emit hideOnHoverChanged(newHideHover);
-        if (oldSung != newSung || oldUnsang != newUnsang)  emit lyricColorsChanged(newSung, newUnsang);
-        if (oldFontSize != newFontSize)     emit lyricFontSizeChanged(newFontSize);
+        s.setValue("musicDir",          newMusicDir);
+        s.setValue("lyricsDir",         newLyricsDir);
+        s.setValue("showLyrics",        newShowLyrics);
+        s.setValue("volume",            newVolume);
+        s.setValue("miniOpacity",       newMiniOpacity);
+        s.setValue("minimizeToTray",    newTray);
+        s.setValue("enableMiniControl", newMini);
+        s.setValue("hideOnHover",       newHideHover);
+        s.setValue("lyricColorSung",    newSung);
+        s.setValue("lyricColorUnsang",  newUnsang);
+        s.setValue("lyricFontSize",     newFontSize);
+        s.setValue("lyricFontFamily",   newFontFamily);
+        if (oldMusicDir    != newMusicDir)   emit musicDirChanged(newMusicDir);
+        if (oldLyricsDir   != newLyricsDir)  emit lyricsDirChanged(newLyricsDir);
+        if (oldShowLyrics  != newShowLyrics) emit showLyricsChanged(newShowLyrics);
+        if (oldVolume      != newVolume)     emit volumeChanged(newVolume / 100.f);
+        if (oldMiniOpacity != newMiniOpacity)emit miniOpacityChanged(newMiniOpacity);
+        if (oldTray        != newTray)       emit minimizeToTrayChanged(newTray);
+        if (oldMini        != newMini)       emit miniControlChanged(newMini);
+        if (oldHideHover   != newHideHover)  emit hideOnHoverChanged(newHideHover);
+        if (oldSung != newSung || oldUnsang != newUnsang) emit lyricColorsChanged(newSung, newUnsang);
+        if (oldFontSize    != newFontSize)   emit lyricFontSizeChanged(newFontSize);
+        if (oldFontFamily  != newFontFamily) emit lyricFontFamilyChanged(newFontFamily);
         accept();
     });
     connect(m_btnCancel, &QPushButton::clicked, this, &QDialog::reject);
+    // ── 读取已保存设置 ───────────────────────────────────────────
     QSettings s("MusicPlayer", "MusicPlayer");
     m_edtMusic->setText(s.value("musicDir").toString());
     m_edtLyrics->setText(s.value("lyricsDir").toString());
     m_chkLyrics->setChecked(s.value("showLyrics", false).toBool());
-    m_miniOpacitySlider->setValue( s.value("miniOpacity",140).toInt());
+    m_miniOpacitySlider->setValue(s.value("miniOpacity", 140).toInt());
     m_volSlider->setValue(s.value("volume", 70).toInt());
     m_lyricFontSlider->setValue(s.value("lyricFontSize", 28).toInt());
     m_chkTray->setChecked(s.value("minimizeToTray", false).toBool());
-    m_chkMiniControl->setChecked(s.value("enableMiniControl",true).toBool());
+    m_chkMiniControl->setChecked(s.value("enableMiniControl", true).toBool());
     m_chkHideHover->setChecked(s.value("hideOnHover", false).toBool());
-    QString sungColor =s.value("lyricColorSung","#E63248").toString();
-    QString unsangColor =s.value("lyricColorUnsang","#F1DDDF").toString();
+    QString sungColor   = s.value("lyricColorSung",   "#E63248").toString();
+    QString unsangColor = s.value("lyricColorUnsang", "#F1DDDF").toString();
     m_edtColorSung->setText(sungColor);
     m_edtColorUnsang->setText(unsangColor);
-    updateSwatch(m_swatchSung,sungColor);
-    updateSwatch(m_swatchUnsang,unsangColor);
+    updateSwatch(m_swatchSung,   sungColor);
+    updateSwatch(m_swatchUnsang, unsangColor);
+    QString savedFamily = s.value("lyricFontFamily", "Microsoft YaHei").toString();
+    m_fontCombo->setCurrentFont(QFont(savedFamily));
 }
+// ── Getters ──────────────────────────────────────────────────────────────
 QString SettingsDialog::musicDir()         const { return m_edtMusic->text(); }
 QString SettingsDialog::lyricsDir()        const { return m_edtLyrics->text(); }
 bool    SettingsDialog::showLyrics()       const { return m_chkLyrics->isChecked(); }
@@ -218,14 +292,39 @@ bool    SettingsDialog::minimizeToTray()   const { return m_chkTray->isChecked()
 bool    SettingsDialog::hideOnHover()      const { return m_chkHideHover->isChecked(); }
 QString SettingsDialog::lyricColorSung()   const { return m_edtColorSung->text(); }
 QString SettingsDialog::lyricColorUnsang() const { return m_edtColorUnsang->text(); }
-void SettingsDialog::setMusicDir(const QString &d)       { m_edtMusic->setText(d); }
-void SettingsDialog::setLyricsDir(const QString &d)      { m_edtLyrics->setText(d); }
-void SettingsDialog::setShowLyrics(bool v)               { m_chkLyrics->setChecked(v); }
-void SettingsDialog::setVolume(float v)                  { m_volSlider->setValue(qRound(v * 100)); }
-void SettingsDialog::setMinimizeToTray(bool v)           { m_chkTray->setChecked(v); }
-void SettingsDialog::setHideOnHover(bool v)              { m_chkHideHover->setChecked(v); }
-void SettingsDialog::setLyricColorSung(const QString &h) {m_edtColorSung->setText(h);updateSwatch(m_swatchSung,h);}
-void SettingsDialog::setLyricColorUnsang(const QString &h) {m_edtColorUnsang->setText(h);updateSwatch(m_swatchUnsang,h);}
+int     SettingsDialog::lyricFontSize()    const { return m_lyricFontSlider->value(); }
+QString SettingsDialog::lyricFontFamily()  const { return m_fontCombo->currentFont().family(); }
+// ── Setters ──────────────────────────────────────────────────────────────
+void SettingsDialog::setMusicDir(const QString &d)         { m_edtMusic->setText(d); }
+void SettingsDialog::setLyricsDir(const QString &d)        { m_edtLyrics->setText(d); }
+void SettingsDialog::setShowLyrics(bool v)                 { m_chkLyrics->setChecked(v); }
+void SettingsDialog::setVolume(float v)                    { m_volSlider->setValue(qRound(v * 100)); }
+void SettingsDialog::setMinimizeToTray(bool v)             { m_chkTray->setChecked(v); }
+void SettingsDialog::setHideOnHover(bool v)                { m_chkHideHover->setChecked(v); }
+void SettingsDialog::setLyricFontSize(int v)               { m_lyricFontSlider->setValue(v); }
+void SettingsDialog::setLyricFontFamily(const QString &f)  { m_fontCombo->setCurrentFont(QFont(f)); }
+
+void SettingsDialog::loadSavedFonts()
+{
+    // 先加载内置默认字体（与可执行文件同目录）
+    QString naikaiPath = QCoreApplication::applicationDirPath() + "/naikai.ttf";
+    if (QFile::exists(naikaiPath))
+        QFontDatabase::addApplicationFont(naikaiPath);
+
+    QSettings s("MusicPlayer", "MusicPlayer");
+    const QStringList paths = s.value("importedFontPaths").toStringList();
+    QStringList valid;
+    for (const QString &path : paths) {
+        if (!QFile::exists(path)) continue;
+        QFontDatabase::addApplicationFont(path);
+        valid << path;
+    }
+    if (valid.size() != paths.size())
+        s.setValue("importedFontPaths", valid);
+}
+void SettingsDialog::setLyricColorSung(const QString &h)   { m_edtColorSung->setText(h);   updateSwatch(m_swatchSung,   h); }
+void SettingsDialog::setLyricColorUnsang(const QString &h) { m_edtColorUnsang->setText(h); updateSwatch(m_swatchUnsang, h); }
+// ── Helpers ───────────────────────────────────────────────────────────────
 void SettingsDialog::updateSwatch(QLabel *swatch, const QString &hex) {
     QColor c(hex);
     if (c.isValid())
@@ -250,20 +349,13 @@ QLabel {
     color: #9890c0;
     font-size: 13px;
 }
-QLabel#aboutLabel{
+QLabel#aboutLabel {
     color: rgba(180,180,210,60);
     font-size: 9px;
     line-height: 12px;
 }
-
-QLabel#aboutLabel a{
-    color: rgba(180,180,210,60);
-    text-decoration:none;
-}
-
-QLabel#aboutLabel a:hover{
-    color: rgba(180,180,210,100);
-}
+QLabel#aboutLabel a { color: rgba(180,180,210,60); text-decoration:none; }
+QLabel#aboutLabel a:hover { color: rgba(180,180,210,100); }
 QLineEdit {
     background: #1c1f30;
     border: 1px solid #2a2e50;
@@ -318,6 +410,23 @@ QSlider#settingsSlider::handle:horizontal {
     width: 12px; height: 12px; margin: -4px 0;
     background: #a090f0; border-radius: 6px;
 }
+QFontComboBox#fontCombo {
+    background: #1c1f30;
+    border: 1px solid #2a2e50;
+    border-radius: 8px;
+    color: #c0bde0;
+    min-height: 28px;
+    max-height: 28px;
+    padding-left: 8px;
+    font-size: 13px;
+}
+QFontComboBox#fontCombo:focus { border-color: #5a50b0; }
+QFontComboBox#fontCombo QAbstractItemView {
+    background: #1c1f30;
+    border: 1px solid #2a2e50;
+    color: #c0bde0;
+    selection-background-color: #3a3070;
+}
 QPushButton#dlgBtn {
     background: #1e2138;
     border: 1px solid #2e3258;
@@ -337,11 +446,4 @@ QPushButton#dlgBtnPrimary {
 }
 QPushButton#dlgBtnPrimary:hover { background: #7060d8; }
 )");
-}
-int SettingsDialog::lyricFontSize() const {
-    return m_lyricFontSlider->value();
-}
-
-void SettingsDialog::setLyricFontSize(int v) {
-    m_lyricFontSlider->setValue(v);
 }

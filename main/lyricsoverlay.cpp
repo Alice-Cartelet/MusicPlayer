@@ -55,33 +55,33 @@ LyricsOverlay::LyricsOverlay(QWidget *parent): QWidget(parent,Qt::Window|Qt::Fra
     m_animTimer = new QTimer(this);
     m_animTimer->setInterval(16);
     connect(m_animTimer, &QTimer::timeout, this, [this]
-    {
-        m_animElapsed += 16;
-        float t = qMin(1.f, (float)m_animElapsed / qMax(1, m_animDur));
-        m_litPx = m_animStart + (m_animEnd - m_animStart) * easeOut(t);
-        update();
-        if (t >= 1.f)
-            m_animTimer->stop();
-    });
+            {
+                m_animElapsed += 16;
+                float t = qMin(1.f, (float)m_animElapsed / qMax(1, m_animDur));
+                m_litPx = m_animStart + (m_animEnd - m_animStart) * easeOut(t);
+                update();
+                if (t >= 1.f)
+                    m_animTimer->stop();
+            });
     m_hoverCheckTimer = new QTimer(this);
     m_hoverCheckTimer->setInterval(30);
     connect(m_hoverCheckTimer, &QTimer::timeout, this, [this]()
-    {
-        QPoint globalPos = QCursor::pos();
-        QRect r = geometry();
-        if (!r.contains(globalPos))
-        {
-            setAttribute(Qt::WA_TransparentForMouseEvents, false);
-            setWindowOpacity(1.0);
-            m_hoverCheckTimer->stop();
-        }
-    });
+            {
+                QPoint globalPos = QCursor::pos();
+                QRect r = geometry();
+                if (!r.contains(globalPos))
+                {
+                    setAttribute(Qt::WA_TransparentForMouseEvents, false);
+                    setWindowOpacity(1.0);
+                    m_hoverCheckTimer->stop();
+                }
+            });
     m_topmostTimer = new QTimer(this);
     m_topmostTimer->setInterval(2000);
     connect(m_topmostTimer, &QTimer::timeout, this, [this]()
-    {
-        enforceTopmost();
-    });
+            {
+                enforceTopmost();
+            });
     m_topmostTimer->start();
 }
 
@@ -125,7 +125,8 @@ void LyricsOverlay::buildFont()
 {
     m_font.setPointSize(m_fontSize);
     m_font.setBold(true);
-    m_font.setFamilies({"Microsoft YaHei", "Arial", "Segoe UI"});
+    // 用户选择的字体家族优先，后面跟通用回退字体
+    m_font.setFamilies({m_fontFamily, "Microsoft YaHei", "Arial", "Segoe UI"});
 }
 void LyricsOverlay::loadLyrics(const QString &path)
 {
@@ -362,6 +363,17 @@ void LyricsOverlay::setFontSize(int size) {
     m_totalW = (float)fmf.horizontalAdvance(m_lineText);
     int newH = calcWindowHeight(m_fontSize);
     resize(width(), newH);
+    update();
+}
+void LyricsOverlay::setFontFamily(const QString &family) {
+    if (family.isEmpty() || family == m_fontFamily)
+        return;
+    m_fontFamily = family;
+    buildFont();
+    if (!m_lineText.isEmpty()) {
+        QFontMetricsF fmf(m_font);
+        m_totalW = (float)fmf.horizontalAdvance(m_lineText);
+    }
     update();
 }
 void LyricsOverlay::enterEvent(QEnterEvent *e) {

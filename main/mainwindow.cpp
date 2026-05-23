@@ -33,6 +33,7 @@
 #include <QCursor>
 #include <QFileDialog>
 #include "id3v2helper.h"
+#include <QFontDatabase>
 class BlurredBackground : public QWidget
 {
 public: explicit BlurredBackground(QWidget *p = nullptr) : QWidget(p)
@@ -584,6 +585,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     connect(m_miniControl, &MiniControlWindow::nextClicked, this, &MainWindow::onNext);
     applyStyleSheet();
     m_lyricsOverlay = new LyricsOverlay(nullptr);
+    // 启动时把用户导入的字体文件重新加载进 QFontDatabase
+    m_settingsDlg->loadSavedFonts();
     connect(m_lyricsOverlay, &LyricsOverlay::closeRequested, this, [this]
             {
                 m_showLyrics = false;
@@ -633,6 +636,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     connect(m_settingsDlg, &SettingsDialog::lyricFontSizeChanged, this, [this](int size)
             {
                 m_lyricsOverlay->setFontSize(size);
+            }
+            );
+    connect(m_settingsDlg, &SettingsDialog::lyricFontFamilyChanged, this, [this](const QString &family)
+            {
+                m_lyricsOverlay->setFontFamily(family);
             }
             );
     m_trayIcon = new QSystemTrayIcon(windowIcon(), this);
@@ -689,7 +697,18 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     m_audio->setVolume(s.value("volume", 70).toInt() / 100.f);
     m_lyricsOverlay->setHideOnHover(s.value("hideOnHover", false).toBool());
     m_lyricsOverlay->setColors( s.value("lyricColorSung", "#E63248").toString(), s.value("lyricColorUnsang","#F1DDDF").toString() );
+    // 确定默认字体家族：优先用 naikai，回退到 Microsoft YaHei
+    QString defaultFontFamily = "Microsoft YaHei";
+    {
+        QString naikaiPath = QCoreApplication::applicationDirPath() + "/naikai.ttf";
+        if (QFile::exists(naikaiPath)) {
+            int id = QFontDatabase::addApplicationFont(naikaiPath);
+            QStringList fams = QFontDatabase::applicationFontFamilies(id);
+            if (!fams.isEmpty()) defaultFontFamily = fams.first();
+        }
+    }
     m_lyricsOverlay->setFontSize(s.value("lyricFontSize", 28).toInt());
+    m_lyricsOverlay->setFontFamily(s.value("lyricFontFamily", defaultFontFamily).toString());
     if (!m_musicDir.isEmpty()) loadDir(m_musicDir);
     m_miniControl->setOpacityValue(s.value("miniOpacity", 85).toInt());
     if (m_enableMiniControl) m_miniControl->show();
@@ -1825,6 +1844,16 @@ void MainWindow::onOpenSettings()
     m_settingsDlg->setLyricColorSung(s.value("lyricColorSung", "#E63248").toString());
     m_settingsDlg->setLyricColorUnsang(s.value("lyricColorUnsang", "#F1DDDF").toString());
     m_settingsDlg->setLyricFontSize(s.value("lyricFontSize", 28).toInt());
+    {
+        QString defaultFamily = "Microsoft YaHei";
+        QString naikaiPath = QCoreApplication::applicationDirPath() + "/naikai.ttf";
+        if (QFile::exists(naikaiPath)) {
+            int id = QFontDatabase::addApplicationFont(naikaiPath);
+            QStringList fams = QFontDatabase::applicationFontFamilies(id);
+            if (!fams.isEmpty()) defaultFamily = fams.first();
+        }
+        m_settingsDlg->setLyricFontFamily(s.value("lyricFontFamily", defaultFamily).toString());
+    }
     m_settingsDlg->exec();
 }
 void MainWindow::onMusicDirChanged(const QString &dir)
