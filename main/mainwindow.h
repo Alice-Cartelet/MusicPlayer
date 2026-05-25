@@ -19,6 +19,7 @@
 #include "lyricsoverlay.h"
 #include "settingsdialog.h"
 #include "minicontrolwindow.h"
+#include "desktopwallpaper.h"
 class MarqueeLabel;
 class CoverLabel;
 class TrackDelegate;
@@ -69,6 +70,7 @@ private: void setupPlayer();
     void editLyricsFile(int row);
     void showPlaylistSwitchMenu();
     void showAddToPlaylistMenu(int trackRow, const QPoint &globalPos);
+    void initWallpaperLyrics();
 private: QMediaPlayer *m_player = nullptr;
     QAudioOutput *m_audio = nullptr;
     Playlist *m_playlist = nullptr;
@@ -118,5 +120,6 @@ private: QMediaPlayer *m_player = nullptr;
     QSystemTrayIcon *m_trayIcon = nullptr;
     QMenu *m_trayMenu = nullptr;
     bool m_minimizeToTray = false;
+    DesktopWallpaperLyrics *m_wallpaperLyrics = nullptr;
 }
 ;

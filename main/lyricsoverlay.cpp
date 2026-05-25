@@ -84,8 +84,6 @@ LyricsOverlay::LyricsOverlay(QWidget *parent): QWidget(parent,Qt::Window|Qt::Fra
             });
     m_topmostTimer->start();
 }
-
-
 void LyricsOverlay::enforceTopmost()
 {
 #ifdef Q_OS_WIN
@@ -125,7 +123,6 @@ void LyricsOverlay::buildFont()
 {
     m_font.setPointSize(m_fontSize);
     m_font.setBold(true);
-    // 用户选择的字体家族优先，后面跟通用回退字体
     m_font.setFamilies({m_fontFamily, "Microsoft YaHei", "Arial", "Segoe UI"});
 }
 void LyricsOverlay::loadLyrics(const QString &path)
@@ -220,7 +217,6 @@ void LyricsOverlay::updatePosition(qint64 posMs)
         if (m_lineAlpha > 1.f)
             m_lineAlpha = 1.f;
     }
-
     if (qAbs(targetPx - m_targetPx) > 0.5f)
     {
         int dur = (targetPx > m_litPx) ? 80 : 0;
@@ -400,4 +396,16 @@ void LyricsOverlay::setLyricsVisible(bool v) {
 }
 bool LyricsOverlay::lyricsVisible() const {
     return isVisible();
+}
+void LyricsOverlay::getLyricLines(qint64 posMs, QString &prev,QString &cur,QString &next) const
+{
+    prev.clear();
+    cur.clear();
+    next.clear();
+    if (m_parser.isEmpty()) return;
+    int idx = m_parser.currentLine(posMs);
+    if (idx < 0) return;
+    cur = m_parser.line(idx).text;
+    if (idx > 0) prev = m_parser.line(idx - 1).text;
+    if (idx + 1 < m_parser.count()) next = m_parser.line(idx + 1).text;
 }

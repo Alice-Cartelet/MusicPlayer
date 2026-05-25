@@ -157,11 +157,7 @@ void Playlist:: updateDuration( int index, qint64 ms )
     }
     m_tracks[index] .duration=ms;
     QModelIndex idx= createIndex( index, 0);
-    emit dataChanged( idx, idx,
-                     {
-                         DurationRole
-                     }
-                     );
+    emit dataChanged( idx, idx,{DurationRole});
 }
 void Playlist:: notifyFavoriteChanged( const QString &filePath)
 {
@@ -172,11 +168,7 @@ void Playlist:: notifyFavoriteChanged( const QString &filePath)
         if( m_tracks[i] .filePath== filePath )
         {
             QModelIndex idx= createIndex( i, 0);
-            emit dataChanged( idx, idx,
-                             {
-                                 FavoriteRole
-                             }
-                             );
+            emit dataChanged( idx, idx,{FavoriteRole});
         }
     }
 }

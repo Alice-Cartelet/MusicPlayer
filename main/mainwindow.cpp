@@ -34,6 +34,7 @@
 #include <QFileDialog>
 #include "id3v2helper.h"
 #include <QFontDatabase>
+#include "desktopwallpaper.h"
 class BlurredBackground : public QWidget
 {
 public: explicit BlurredBackground(QWidget *p = nullptr) : QWidget(p)
@@ -372,122 +373,117 @@ private: void recalc()
     bool m_scrolling;
 }
 ;
-// ── 残影数据 ────────────────────────────────────────────────
-struct TrailEntry {
-    QPointF pos;   // 视口坐标
-    float   alpha; // 当前不透明度 0~1
-};
-
-// ── 带残影的 ListView ────────────────────────────────────────
+struct TrailEntry
+{
+    QPointF pos;
+    float alpha;
+}
+;
 class TrailListView : public QListView
 {
-public:
-    explicit TrailListView(QWidget *p = nullptr) : QListView(p)
+public: explicit TrailListView(QWidget *p = nullptr) : QListView(p)
     {
         setMouseTracking(true);
         m_fadeTimer = new QTimer(this);
         m_fadeTimer->setInterval(16);
-        connect(m_fadeTimer, &QTimer::timeout, this, [this]() {
-            bool any = false;
-            for (auto &e : m_trails) {
-                e.alpha -= 0.045f;
-                if (e.alpha > 0.f) any = true;
-            }
-            m_trails.erase(
-                std::remove_if(m_trails.begin(), m_trails.end(),
-                               [](const TrailEntry &e){ return e.alpha <= 0.f; }),
-                m_trails.end());
-            viewport()->update();
-            if (!any) m_fadeTimer->stop();
-        });
+        connect(m_fadeTimer, &QTimer::timeout, this, [this]()
+                {
+                    bool any = false;
+                    for (auto &e : m_trails)
+                    {
+                        e.alpha -= 0.045f;
+                        if (e.alpha > 0.f) any = true;
+                    }
+                    m_trails.erase( std::remove_if(m_trails.begin(), m_trails.end(), [](const TrailEntry &e)
+                                                  {
+                                                      return e.alpha <= 0.f;
+                                                  }
+                                                  ), m_trails.end());
+                    viewport()->update();
+                    if (!any) m_fadeTimer->stop();
+                }
+                );
     }
-
-    // 供 delegate 读取残影列表
-    const QVector<TrailEntry> &trails() const { return m_trails; }
-
-protected:
-    void mouseMoveEvent(QMouseEvent *e) override {
+    const QVector<TrailEntry> &trails() const
+    {
+        return m_trails;
+    }
+protected: void mouseMoveEvent(QMouseEvent *e) override
+    {
         QListView::mouseMoveEvent(e);
 #if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
         QPointF vpos = e->position();
 #else
         QPointF vpos = e->localPos();
 #endif
-        // 与上一个残影距离够大才记录，避免静止时堆积
-        if (m_trails.isEmpty() ||
-            (vpos - m_trails.last().pos).manhattanLength() > 6.0)
+if (m_trails.isEmpty() || (vpos - m_trails.last().pos).manhattanLength() > 6.0)
         {
             TrailEntry te;
-            te.pos   = vpos;
+            te.pos = vpos;
             te.alpha = 0.55f;
             m_trails.append(te);
             if (m_trails.size() > 18) m_trails.removeFirst();
             if (!m_fadeTimer->isActive()) m_fadeTimer->start();
         }
     }
-
-    void leaveEvent(QEvent *e) override {
+    void leaveEvent(QEvent *e) override
+    {
         QListView::leaveEvent(e);
-        // 鼠标离开时让残影继续淡出即可，不强制清空
     }
-
-private:
-    QVector<TrailEntry> m_trails;
-    QTimer             *m_fadeTimer = nullptr;
-};
-
-// ── Delegate ─────────────────────────────────────────────────
+private: QVector<TrailEntry> m_trails;
+    QTimer *m_fadeTimer = nullptr;
+}
+;
 class TrackDelegate : public QStyledItemDelegate
 {
-public:
-    explicit TrackDelegate(QObject *p = nullptr) : QStyledItemDelegate(p) {}
-
-    // 当前播放行，由 MainWindow 设置
-    void setPlayingRow(int row) { m_playingRow = row; }
-    int  playingRow() const     { return m_playingRow; }
-
-    void paint(QPainter *p, const QStyleOptionViewItem &opt,
-               const QModelIndex &idx) const override
+public: explicit TrackDelegate(QObject *p = nullptr) : QStyledItemDelegate(p)
+    {
+    }
+    void setPlayingRow(int row)
+    {
+        m_playingRow = row;
+    }
+    int playingRow() const
+    {
+        return m_playingRow;
+    }
+    void paint(QPainter *p, const QStyleOptionViewItem &opt, const QModelIndex &idx) const override
     {
         p->save();
         p->setRenderHint(QPainter::Antialiasing);
-
         const bool isPlaying = (idx.row() == m_playingRow);
-        const bool sel       = opt.state & QStyle::State_Selected;
-        const bool hov       = opt.state & QStyle::State_MouseOver;
+        const bool sel = opt.state & QStyle::State_Selected;
+        const bool hov = opt.state & QStyle::State_MouseOver;
         QRect r = opt.rect;
-
-        // ── 背景 ──────────────────────────────────────────────
         p->setPen(Qt::NoPen);
-        if (isPlaying) {
-            // 播放中：紫色渐变背景
+        if (isPlaying)
+        {
             QLinearGradient g(r.left(), r.top(), r.right(), r.top());
             g.setColorAt(0.0, QColor(139, 108, 255, 55));
             g.setColorAt(1.0, QColor(139, 108, 255, 20));
             p->setBrush(g);
             p->drawRoundedRect(r.adjusted(2, 1, -2, -1), 8, 8);
-            // 左侧彩色竖线
             p->setBrush(QColor(139, 108, 255, 220));
             p->drawRoundedRect(r.adjusted(2, 4, -(r.width()-6), -4), 3, 3);
-        } else if (sel) {
-            // 选中：浅灰
+        }
+        else if (sel)
+        {
             p->setBrush(QColor(0, 0, 0, 18));
             p->drawRoundedRect(r.adjusted(2, 1, -2, -1), 8, 8);
-        } else if (hov) {
+        }
+        else if (hov)
+        {
             p->setBrush(QColor(0, 0, 0, 10));
             p->drawRoundedRect(r.adjusted(2, 1, -2, -1), 8, 8);
         }
-
-        // ── 残影光点（从父 view 读取） ─────────────────────────
-        if (const auto *tv = dynamic_cast<const TrailListView*>(
-                opt.widget ? opt.widget->parent() : nullptr))
+        if (const auto *tv = dynamic_cast<const TrailListView*>( opt.widget ? opt.widget->parent() : nullptr))
         {
             p->save();
             p->setClipRect(r);
-            for (const TrailEntry &te : tv->trails()) {
+            for (const TrailEntry &te : tv->trails())
+            {
                 if (!r.contains(te.pos.toPoint())) continue;
                 float a = te.alpha;
-                // 外光晕
                 QRadialGradient rg(te.pos, 22);
                 rg.setColorAt(0.0, QColor(180, 150, 255, int(a * 80)));
                 rg.setColorAt(0.5, QColor(139, 108, 255, int(a * 30)));
@@ -495,7 +491,6 @@ public:
                 p->setPen(Qt::NoPen);
                 p->setBrush(rg);
                 p->drawEllipse(te.pos, 22.0, 22.0);
-                // 亮核
                 QRadialGradient core(te.pos, 5);
                 core.setColorAt(0.0, QColor(255, 255, 255, int(a * 180)));
                 core.setColorAt(1.0, Qt::transparent);
@@ -504,57 +499,47 @@ public:
             }
             p->restore();
         }
-
-        // ── 文字（交给父类） ───────────────────────────────────
         QStyleOptionViewItem o(opt);
-        o.rect   = r.adjusted(14, 0, -62, 0);
-        o.state &= ~QStyle::State_Selected;   // 不让 Qt 自己画蓝色选中背景
+        o.rect = r.adjusted(14, 0, -62, 0);
+        o.state &= ~QStyle::State_Selected;
         o.state &= ~QStyle::State_MouseOver;
         o.state &= ~QStyle::State_HasFocus;
-        // 播放中文字加粗紫色
-        if (isPlaying) {
+        if (isPlaying)
+        {
             o.palette.setColor(QPalette::Text, QColor("#7a50e0"));
             o.font.setBold(true);
         }
         QStyledItemDelegate::paint(p, o, idx);
-
-        // ── 右侧图标 ───────────────────────────────────────────
         QRect editRect(r.right() - 30, r.top(), 30, r.height());
         QRect favRect (r.right() - 58, r.top(), 28, r.height());
-
         bool isFav = idx.data(Playlist::FavoriteRole).toBool();
         QFont heartFont = p->font();
         heartFont.setPointSize(13);
         p->setFont(heartFont);
-        if (isFav) {
+        if (isFav)
+        {
             p->setPen(QColor("#e74c6a"));
             p->drawText(favRect, Qt::AlignCenter, "♥");
-        } else {
+        }
+        else
+        {
             p->setPen(hov ? QColor(180, 60, 100, 180) : QColor(0, 0, 0, 80));
             p->drawText(favRect, Qt::AlignCenter, "♡");
         }
-
         QFont editFont = p->font();
         editFont.setPointSize(14);
         p->setFont(editFont);
-        p->setPen(isPlaying ? QColor(139, 108, 255, 200)
-                  : sel     ? QColor(0, 0, 0, 230)
-                  : hov     ? QColor(0, 0, 0, 220)
-                            : QColor(0, 0, 0, 170));
+        p->setPen(isPlaying ? QColor(139, 108, 255, 200) : sel ? QColor(0, 0, 0, 230) : hov ? QColor(0, 0, 0, 220) : QColor(0, 0, 0, 170));
         p->drawText(editRect, Qt::AlignCenter, "✎");
-
         p->restore();
     }
-
     QSize sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const override
     {
         return QSize(0, 30);
     }
-
-private:
-    int m_playingRow = -1;
-};
-
+private: int m_playingRow = -1;
+}
+;
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
     setWindowFlags(Qt::FramelessWindowHint | Qt::Window);
@@ -585,15 +570,15 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     connect(m_miniControl, &MiniControlWindow::nextClicked, this, &MainWindow::onNext);
     applyStyleSheet();
     m_lyricsOverlay = new LyricsOverlay(nullptr);
-    // 启动时把用户导入的字体文件重新加载进 QFontDatabase
-    m_settingsDlg->loadSavedFonts();
     connect(m_lyricsOverlay, &LyricsOverlay::closeRequested, this, [this]
             {
                 m_showLyrics = false;
                 m_lyricsOverlay->hide();
             }
             );
+    m_wallpaperLyrics = new DesktopWallpaperLyrics(this);
     m_settingsDlg = new SettingsDialog(this);
+    m_settingsDlg->loadSavedFonts();
     connect(m_settingsDlg, &SettingsDialog::musicDirChanged, this, &MainWindow::onMusicDirChanged);
     connect(m_settingsDlg, &SettingsDialog::lyricsDirChanged, this, &MainWindow::onLyricsDirChanged);
     connect(m_settingsDlg, &SettingsDialog::showLyricsChanged, this, [this](bool v)
@@ -638,11 +623,32 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
                 m_lyricsOverlay->setFontSize(size);
             }
             );
+    connect( m_settingsDlg, &SettingsDialog::wallpaperFontSizeChanged, m_wallpaperLyrics, &DesktopWallpaperLyrics::setFontSize );
+    connect( m_settingsDlg, &SettingsDialog::wallpaperTitleFontSizeChanged, m_wallpaperLyrics, &DesktopWallpaperLyrics::setTitleFontSize );
     connect(m_settingsDlg, &SettingsDialog::lyricFontFamilyChanged, this, [this](const QString &family)
             {
                 m_lyricsOverlay->setFontFamily(family);
+                m_wallpaperLyrics->setFontFamily(family);
             }
             );
+    connect( m_settingsDlg, &SettingsDialog::wallpaperLyricsEnabledChanged, this, [this](bool on)
+            {
+                if(on)
+                {
+                    QSettings s( "MusicPlayer", "MusicPlayer");
+                    m_wallpaperLyrics ->setBackgroundImage( s.value( "wallpaperBgImage" ).toString());
+                }
+                m_wallpaperLyrics ->setEnabled(on);
+                if(!on)
+                {
+                    m_wallpaperLyrics ->clearLyrics();
+                }
+            }
+            );
+    connect(m_settingsDlg, &SettingsDialog::wallpaperOrientationChanged, m_wallpaperLyrics, &DesktopWallpaperLyrics::setOrientation);
+    connect( m_settingsDlg, &SettingsDialog ::wallpaperPositionChanged, m_wallpaperLyrics, &DesktopWallpaperLyrics ::setCustomPosition);
+    connect(m_settingsDlg, &SettingsDialog::wallpaperColorCurrentChanged, m_wallpaperLyrics, &DesktopWallpaperLyrics::setColorCurrent);
+    connect( m_settingsDlg, &SettingsDialog::wallpaperOpacityChanged, m_wallpaperLyrics, &DesktopWallpaperLyrics::setOpacity );
     m_trayIcon = new QSystemTrayIcon(windowIcon(), this);
     m_trayMenu = new QMenu(this);
     m_trayMenu->setStyleSheet(R"( QMenu
@@ -697,11 +703,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     m_audio->setVolume(s.value("volume", 70).toInt() / 100.f);
     m_lyricsOverlay->setHideOnHover(s.value("hideOnHover", false).toBool());
     m_lyricsOverlay->setColors( s.value("lyricColorSung", "#E63248").toString(), s.value("lyricColorUnsang","#F1DDDF").toString() );
-    // 确定默认字体家族：优先用 naikai，回退到 Microsoft YaHei
     QString defaultFontFamily = "Microsoft YaHei";
     {
         QString naikaiPath = QCoreApplication::applicationDirPath() + "/naikai.ttf";
-        if (QFile::exists(naikaiPath)) {
+        if (QFile::exists(naikaiPath))
+        {
             int id = QFontDatabase::addApplicationFont(naikaiPath);
             QStringList fams = QFontDatabase::applicationFontFamilies(id);
             if (!fams.isEmpty()) defaultFontFamily = fams.first();
@@ -712,6 +718,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     if (!m_musicDir.isEmpty()) loadDir(m_musicDir);
     m_miniControl->setOpacityValue(s.value("miniOpacity", 85).toInt());
     if (m_enableMiniControl) m_miniControl->show();
+    initWallpaperLyrics();
     QTimer::singleShot(400, this, [this]
                        {
                            restorePlaybackState();
@@ -735,6 +742,21 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 }
 MainWindow::~MainWindow()
 {
+}
+void MainWindow::initWallpaperLyrics()
+{
+    QSettings s("MusicPlayer","MusicPlayer");
+    m_wallpaperLyrics->setBackgroundImage( s.value("wallpaperBgImage").toString() );
+    m_wallpaperLyrics->setOrientation( static_cast<LyricOrientation>( s.value("wallpaperOrientation",0).toInt() ) );
+    m_wallpaperLyrics->setCustomPosition( QPoint( s.value("wallPosX",800).toInt(), s.value("wallPosY",500).toInt() ) );
+    m_wallpaperLyrics->setColorCurrent( s.value("wallpaperColorCurrent","#FFFFFF").toString() );
+    m_wallpaperLyrics->setColorOther( s.value( "wallpaperColorOther", "rgba(255,255,255,0.55)" ).toString() );
+    m_wallpaperLyrics->setTextShadow( s.value( "wallpaperTextShadow", true ).toBool() );
+    m_wallpaperLyrics->setOpacity( s.value( "wallpaperOpacity", 255 ).toInt() );
+    m_wallpaperLyrics->setFontFamily( s.value( "lyricFontFamily", "Microsoft YaHei" ).toString() );
+    m_wallpaperLyrics->setFontSize( s.value("wallpaperFontSize", 36).toInt() );
+    m_wallpaperLyrics->setTitleFontSize( s.value("wallpaperTitleFontSize", 22).toInt() );
+    m_wallpaperLyrics->setEnabled( s.value( "wallpaperLyricsEnabled", false ).toBool() );
 }
 void MainWindow::setupPlayer()
 {
@@ -1827,6 +1849,12 @@ void MainWindow::onPositionChanged(qint64 pos)
         m_lblTimeElapsed->setText(formatTime(pos));
     }
     if (m_showLyrics && m_lyricsOverlay->isVisible()) m_lyricsOverlay->updatePosition(pos);
+    if (m_wallpaperLyrics->isEnabled())
+    {
+        QString prev, cur, next;
+        m_lyricsOverlay->getLyricLines(pos, prev, cur, next);
+        m_wallpaperLyrics->updateLyrics(prev, cur, next);
+    }
 }
 void MainWindow::onMediaErrorOccurred(QMediaPlayer::Error, const QString &msg)
 {
@@ -1847,7 +1875,8 @@ void MainWindow::onOpenSettings()
     {
         QString defaultFamily = "Microsoft YaHei";
         QString naikaiPath = QCoreApplication::applicationDirPath() + "/naikai.ttf";
-        if (QFile::exists(naikaiPath)) {
+        if (QFile::exists(naikaiPath))
+        {
             int id = QFontDatabase::addApplicationFont(naikaiPath);
             QStringList fams = QFontDatabase::applicationFontFamilies(id);
             if (!fams.isEmpty()) defaultFamily = fams.first();
@@ -1928,6 +1957,7 @@ void MainWindow::closeEvent(QCloseEvent *e)
     m_player->stop();
     m_lyricsOverlay->close();
     m_miniControl->close();
+    if (m_wallpaperLyrics) m_wallpaperLyrics->setEnabled(false);
     e->accept();
 }
 void MainWindow::resizeEvent(QResizeEvent *e)
@@ -2040,6 +2070,7 @@ void MainWindow::restorePlaybackState()
         m_listView->setCurrentIndex(m_playlist->index(index));
         if (m_trackDelegate) m_trackDelegate->setPlayingRow(index);
         m_lyricsOverlay->loadLyrics(findLyricFile(t.filePath));
+        if (m_wallpaperLyrics->isEnabled()) m_wallpaperLyrics->setTrackTitle(t.title);
         connect(m_player, &QMediaPlayer::mediaStatusChanged, this, [this, pos](QMediaPlayer::MediaStatus status)
                 {
                     if (status == QMediaPlayer::LoadedMedia) m_player->setPosition(pos);
@@ -2175,6 +2206,11 @@ void MainWindow::playTrack(int index)
     m_listView->viewport()->update();
     m_lyricsOverlay->loadLyrics(findLyricFile(t.filePath));
     if (m_showLyrics) m_lyricsOverlay->show();
+    if (m_wallpaperLyrics->isEnabled())
+    {
+        m_wallpaperLyrics->clearLyrics();
+        m_wallpaperLyrics->setTrackTitle(t.title);
+    }
 }
 int MainWindow::nextTrackIndex() const
 {

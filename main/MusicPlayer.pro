@@ -10,21 +10,25 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     miniControlWindow.cpp \
+    desktopwallpaper.cpp \
     playlistmanager.cpp \
     miniconbutton.cpp \
     playlist.cpp \
     lrcxparser.cpp \
     lyricsoverlay.cpp \
+    positionpicker.cpp \
     settingsdialog.cpp
 
 HEADERS += \
     app.rc \
     id3v2helper.h \
+    desktopwallpaper.h \
     mainwindow.h \
     playlistmanager.h \
     miniconbutton.h \
     minicontrolwindow.h \
     playlist.h \
+    positionpicker.h \
     trackitem.h \
     lrcxparser.h \
     lyricsoverlay.h \

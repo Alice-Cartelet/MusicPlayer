@@ -2,6 +2,9 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
+#include "positionpicker.h"
+#include <QSettings>
+#include <QGroupBox>
 #include <QLabel>
 #include <QSlider>
 #include <QFileDialog>
@@ -11,14 +14,26 @@
 #include <QRegularExpression>
 #include <QFontDatabase>
 #include <QMessageBox>
+#include <QScrollArea>
 SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
 {
     setWindowTitle("设置");
     setModal(true);
-    setFixedSize(460, 450);
-    QVBoxLayout *root = new QVBoxLayout(this);
+    resize(760,680);
+    setMinimumSize(760,680);
+    QVBoxLayout *rootOuter = new QVBoxLayout(this);
+    rootOuter->setContentsMargins(0, 0, 0, 0);
+    rootOuter->setSpacing(0);
+    QScrollArea *scroll = new QScrollArea;
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    rootOuter->addWidget(scroll);
+    QWidget *inner = new QWidget;
+    scroll->setWidget(inner);
+    QVBoxLayout *root = new QVBoxLayout(inner);
     root->setContentsMargins(18, 20, 18, 12);
-    root->setSpacing(14);
+    root->setSpacing(18);
     QFormLayout *form = new QFormLayout;
     form->setSpacing(12);
     form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
@@ -71,8 +86,7 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     m_lyricFontSlider->setRange(18, 60);
     m_lyricFontSlider->setValue(28);
     form->addRow("歌词字号：", m_lyricFontSlider);
-    // ── 字体家族选择器 + 导入按钮 ─────────────────────────────────
-    loadSavedFonts();   // 先把已保存的字体文件加载进 QFontDatabase
+    loadSavedFonts();
     QHBoxLayout *fontRow = new QHBoxLayout;
     fontRow->setSpacing(8);
     fontRow->setContentsMargins(0,0,0,0);
@@ -80,15 +94,13 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     m_fontCombo->setObjectName("fontCombo");
     m_fontCombo->setEditable(false);
     m_fontCombo->setCurrentFont(QFont("Microsoft YaHei"));
-    // 如果 naikai 已加载，优先选它
     {
         QString naikaiPath = QCoreApplication::applicationDirPath() + "/naikai.ttf";
-        if (QFile::exists(naikaiPath)) {
-            // addApplicationFont 幂等，重复调用返回同一 id
+        if (QFile::exists(naikaiPath))
+        {
             int id = QFontDatabase::addApplicationFont(naikaiPath);
             QStringList fams = QFontDatabase::applicationFontFamilies(id);
-            if (!fams.isEmpty())
-                m_fontCombo->setCurrentFont(QFont(fams.first()));
+            if (!fams.isEmpty()) m_fontCombo->setCurrentFont(QFont(fams.first()));
         }
     }
     m_btnImportFont = new QPushButton("导入字体");
@@ -97,16 +109,16 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     fontRow->addWidget(m_fontCombo, 1);
     fontRow->addWidget(m_btnImportFont);
     form->addRow("歌词字体：", fontRow);
-    // ─────────────────────────────────────────────────────────────
-    auto makeColorRow = [&](QLineEdit *&edt, QLabel *&swatch, const QString &defaultHex) -> QHBoxLayout* {
+    auto makeColorRow = [&](QLineEdit *&edt, QLabel *&swatch, const QString &defaultHex) -> QHBoxLayout*
+    {
         QHBoxLayout *row = new QHBoxLayout;
         row->setSpacing(6);
         row->setContentsMargins(0,0,0,0);
         edt = new QLineEdit(defaultHex);
         edt->setObjectName("colorEdit");
-        edt->setMaxLength(7);
-        edt->setFixedWidth(100);
-        edt->setValidator(new QRegularExpressionValidator(QRegularExpression("^#[0-9A-Fa-f]{0,6}$"), edt));
+        edt->setMaxLength(30);
+        edt->setFixedWidth(120);
+        edt->setValidator(nullptr);
         swatch = new QLabel;
         swatch->setObjectName("colorSwatch");
         swatch->setStyleSheet("margin-left:6px;");
@@ -116,7 +128,8 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
         row->addSpacing(14);
         row->addWidget(swatch, 0, Qt::AlignVCenter);
         return row;
-    };
+    }
+    ;
     QHBoxLayout *colorLayout = new QHBoxLayout;
     colorLayout->setSpacing(10);
     QLabel *lblSung = new QLabel("已读");
@@ -124,15 +137,50 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     QLabel *lblUnsang = new QLabel("未读");
     lblUnsang->setMinimumWidth(36);
     colorLayout->addWidget(lblSung);
-    colorLayout->addLayout(makeColorRow(m_edtColorSung,   m_swatchSung,   "#E63248"));
+    colorLayout->addLayout(makeColorRow(m_edtColorSung, m_swatchSung, "#E63248"));
     colorLayout->addSpacing(16);
     colorLayout->addWidget(lblUnsang);
     colorLayout->addLayout(makeColorRow(m_edtColorUnsang, m_swatchUnsang, "#F1DDDF"));
     form->addRow("歌词颜色：", colorLayout);
     root->addLayout(form);
-    QLabel *aboutLabel = new QLabel(
-        QString("Version: %1<br>GitHub: github.com/Alice-Cartelet")
-            .arg(QApplication::applicationVersion()));
+    QGroupBox *grpWall = new QGroupBox("🖼  壁纸歌词");
+    grpWall->setObjectName("wallGroup");
+    QFormLayout *wallForm = new QFormLayout(grpWall);
+    wallForm->setSpacing(10);
+    wallForm->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    m_chkWallpaper = new QCheckBox("启用壁纸歌词（将歌词显示于桌面壁纸）");
+    m_chkWallpaper->setObjectName("settingsCheck");
+    wallForm->addRow("", m_chkWallpaper);
+    m_cmbOrientation = new QComboBox;
+    m_cmbOrientation->setObjectName("wallCombo");
+    m_cmbOrientation->addItem("横排", static_cast<int>(LyricOrientation::Horizontal));
+    m_cmbOrientation->addItem("竖排", static_cast<int>(LyricOrientation::Vertical));
+    wallForm->addRow("排列方式：", m_cmbOrientation);
+    m_btnPickPosition= new QPushButton( "选择桌面位置");
+    m_btnPickPosition ->setObjectName( "browseBtn");
+    wallForm->addRow( "显示位置：", m_btnPickPosition);
+    m_wallFontSlider = new QSlider(Qt::Horizontal);
+    m_wallFontSlider->setObjectName("settingsSlider");
+    m_wallFontSlider->setRange(18, 80);
+    m_wallFontSlider->setValue(36);
+    wallForm->addRow("歌词字号：", m_wallFontSlider);
+    m_wallTitleFontSlider = new QSlider(Qt::Horizontal);
+    m_wallTitleFontSlider->setObjectName("settingsSlider");
+    m_wallTitleFontSlider->setRange(10, 60);
+    m_wallTitleFontSlider->setValue(22);
+    wallForm->addRow("歌名字号：", m_wallTitleFontSlider);
+    m_wallOpacitySlider = new QSlider(Qt::Horizontal);
+    m_wallOpacitySlider ->setObjectName("settingsSlider");
+    m_wallOpacitySlider ->setRange(20,255);
+    m_wallOpacitySlider ->setValue(255);
+    wallForm->addRow( "歌词透明度：", m_wallOpacitySlider );
+    QHBoxLayout *wallColorRow= new QHBoxLayout;
+    QLabel *lbl= new QLabel( "歌词颜色");
+    wallColorRow->addWidget( lbl);
+    wallColorRow->addLayout( makeColorRow( m_edtWallColorCurr, m_swatchWallCurr, "#FFFFFF"));
+    wallForm->addRow( "", wallColorRow);
+    root->addWidget(grpWall);
+    QLabel *aboutLabel = new QLabel( QString("Version: %1<br>GitHub: github.com/Alice-Cartelet") .arg(QApplication::applicationVersion()));
     aboutLabel->setObjectName("aboutLabel");
     aboutLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
     aboutLabel->setOpenExternalLinks(false);
@@ -150,7 +198,7 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     bottomRow->addLayout(btns);
     btns->addStretch();
     m_btnCancel = new QPushButton("取消");
-    m_btnOk     = new QPushButton("确定");
+    m_btnOk = new QPushButton("确定");
     m_btnCancel->setObjectName("dlgBtn");
     m_btnOk->setObjectName("dlgBtnPrimary");
     m_btnCancel->setFixedSize(80, 32);
@@ -160,110 +208,164 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     btns->addWidget(m_btnOk);
     root->addLayout(bottomRow);
     applyStyle();
-    // ── 信号连接 ─────────────────────────────────────────────────
-    connect(m_btnMusic, &QPushButton::clicked, this, [this] {
-        QString d = QFileDialog::getExistingDirectory(this, "选择音乐目录", m_edtMusic->text());
-        if (!d.isEmpty()) m_edtMusic->setText(d);
-    });
-    connect(m_btnLyrics, &QPushButton::clicked, this, [this] {
-        QString d = QFileDialog::getExistingDirectory(this, "选择歌词目录", m_edtLyrics->text());
-        if (!d.isEmpty()) m_edtLyrics->setText(d);
-    });
-    connect(m_edtColorSung, &QLineEdit::textChanged, this, [this](const QString &t) {
-        updateSwatch(m_swatchSung, t);
-    });
-    connect(m_edtColorUnsang, &QLineEdit::textChanged, this, [this](const QString &t) {
-        updateSwatch(m_swatchUnsang, t);
-    });
-    connect(m_btnImportFont, &QPushButton::clicked, this, [this] {
-        QStringList files = QFileDialog::getOpenFileNames(
-            this, "选择字体文件", QString(),
-            "字体文件 (*.ttf *.otf *.TTF *.OTF)");
-        if (files.isEmpty()) return;
-        // 读取已保存的字体路径列表
-        QSettings s("MusicPlayer", "MusicPlayer");
-        QStringList saved = s.value("importedFontPaths").toStringList();
-        QString lastFamily;
-        for (const QString &path : files) {
-            if (saved.contains(path)) {
-                // 已经导入过，直接取家族名
-                int id = QFontDatabase::addApplicationFont(path);
-                QStringList families = QFontDatabase::applicationFontFamilies(id);
-                if (!families.isEmpty()) lastFamily = families.first();
-                continue;
+    connect(m_btnMusic, &QPushButton::clicked, this, [this]
+            {
+                QString d = QFileDialog::getExistingDirectory(this, "选择音乐目录", m_edtMusic->text());
+                if (!d.isEmpty()) m_edtMusic->setText(d);
             }
-            int id = QFontDatabase::addApplicationFont(path);
-            if (id == -1) {
-                QMessageBox::warning(this, "导入失败",
-                                     QString("无法加载字体文件：\n%1").arg(path));
-                continue;
+            );
+    connect(m_btnLyrics, &QPushButton::clicked, this, [this]
+            {
+                QString d = QFileDialog::getExistingDirectory(this, "选择歌词目录", m_edtLyrics->text());
+                if (!d.isEmpty()) m_edtLyrics->setText(d);
             }
-            QStringList families = QFontDatabase::applicationFontFamilies(id);
-            if (families.isEmpty()) continue;
-            saved << path;
-            lastFamily = families.first();
-        }
-        s.setValue("importedFontPaths", saved);
-        // 刷新 combo 并选中最后导入的字体
-        if (!lastFamily.isEmpty()) {
-            m_fontCombo->setCurrentFont(QFont(lastFamily));
-        }
-    });
-    connect(m_btnOk, &QPushButton::clicked, this, [this] {
-        QSettings s("MusicPlayer", "MusicPlayer");
-        QString oldMusicDir   = s.value("musicDir").toString();
-        QString oldLyricsDir  = s.value("lyricsDir").toString();
-        bool    oldShowLyrics = s.value("showLyrics", false).toBool();
-        int     oldVolume     = s.value("volume", 70).toInt();
-        int     oldMiniOpacity= s.value("miniOpacity", 140).toInt();
-        bool    oldTray       = s.value("minimizeToTray", false).toBool();
-        bool    oldMini       = s.value("enableMiniControl", true).toBool();
-        bool    oldHideHover  = s.value("hideOnHover", false).toBool();
-        QString oldSung       = s.value("lyricColorSung",   "#E63248").toString();
-        QString oldUnsang     = s.value("lyricColorUnsang", "#F1DDDF").toString();
-        int     oldFontSize   = s.value("lyricFontSize", 28).toInt();
-        QString oldFontFamily = s.value("lyricFontFamily", "Microsoft YaHei").toString();
-        QString newMusicDir   = m_edtMusic->text();
-        QString newLyricsDir  = m_edtLyrics->text();
-        bool    newShowLyrics = m_chkLyrics->isChecked();
-        int     newVolume     = m_volSlider->value();
-        int     newMiniOpacity= m_miniOpacitySlider->value();
-        bool    newTray       = m_chkTray->isChecked();
-        bool    newMini       = m_chkMiniControl->isChecked();
-        bool    newHideHover  = m_chkHideHover->isChecked();
-        QString newSung       = m_edtColorSung->text();
-        QString newUnsang     = m_edtColorUnsang->text();
-        int     newFontSize   = m_lyricFontSlider->value();
-        QString newFontFamily = m_fontCombo->currentFont().family();
-        if (newSung.length()   != 7) newSung   = oldSung;
-        if (newUnsang.length() != 7) newUnsang = oldUnsang;
-        s.setValue("musicDir",          newMusicDir);
-        s.setValue("lyricsDir",         newLyricsDir);
-        s.setValue("showLyrics",        newShowLyrics);
-        s.setValue("volume",            newVolume);
-        s.setValue("miniOpacity",       newMiniOpacity);
-        s.setValue("minimizeToTray",    newTray);
-        s.setValue("enableMiniControl", newMini);
-        s.setValue("hideOnHover",       newHideHover);
-        s.setValue("lyricColorSung",    newSung);
-        s.setValue("lyricColorUnsang",  newUnsang);
-        s.setValue("lyricFontSize",     newFontSize);
-        s.setValue("lyricFontFamily",   newFontFamily);
-        if (oldMusicDir    != newMusicDir)   emit musicDirChanged(newMusicDir);
-        if (oldLyricsDir   != newLyricsDir)  emit lyricsDirChanged(newLyricsDir);
-        if (oldShowLyrics  != newShowLyrics) emit showLyricsChanged(newShowLyrics);
-        if (oldVolume      != newVolume)     emit volumeChanged(newVolume / 100.f);
-        if (oldMiniOpacity != newMiniOpacity)emit miniOpacityChanged(newMiniOpacity);
-        if (oldTray        != newTray)       emit minimizeToTrayChanged(newTray);
-        if (oldMini        != newMini)       emit miniControlChanged(newMini);
-        if (oldHideHover   != newHideHover)  emit hideOnHoverChanged(newHideHover);
-        if (oldSung != newSung || oldUnsang != newUnsang) emit lyricColorsChanged(newSung, newUnsang);
-        if (oldFontSize    != newFontSize)   emit lyricFontSizeChanged(newFontSize);
-        if (oldFontFamily  != newFontFamily) emit lyricFontFamilyChanged(newFontFamily);
-        accept();
-    });
+            );
+    connect(m_edtColorSung, &QLineEdit::textChanged, this, [this](const QString &t)
+            {
+                updateSwatch(m_swatchSung, t);
+            }
+            );
+    connect(m_edtColorUnsang, &QLineEdit::textChanged, this, [this](const QString &t)
+            {
+                updateSwatch(m_swatchUnsang, t);
+            }
+            );
+    connect(m_btnImportFont, &QPushButton::clicked, this, [this]
+            {
+                QStringList files = QFileDialog::getOpenFileNames( this, "选择字体文件", QString(), "字体文件 (*.ttf *.otf *.TTF *.OTF)");
+                if (files.isEmpty()) return;
+                QSettings s("MusicPlayer", "MusicPlayer");
+                QStringList saved = s.value("importedFontPaths").toStringList();
+                QString lastFamily;
+                for (const QString &path : files)
+                {
+                    if (saved.contains(path))
+                    {
+                        int id = QFontDatabase::addApplicationFont(path);
+                        QStringList families = QFontDatabase::applicationFontFamilies(id);
+                        if (!families.isEmpty()) lastFamily = families.first();
+                        continue;
+                    }
+                    int id = QFontDatabase::addApplicationFont(path);
+                    if (id == -1)
+                    {
+                        QMessageBox::warning(this, "导入失败", QString("无法加载字体文件：\n%1").arg(path));
+                        continue;
+                    }
+                    QStringList families = QFontDatabase::applicationFontFamilies(id);
+                    if (families.isEmpty()) continue;
+                    saved << path;
+                    lastFamily = families.first();
+                }
+                s.setValue("importedFontPaths", saved);
+                if (!lastFamily.isEmpty()) m_fontCombo->setCurrentFont(QFont(lastFamily));
+            }
+            );
+    connect( m_btnPickPosition, &QPushButton::clicked, this, [this]
+            {
+                PositionPicker dlg( this);
+                if( dlg.exec() == QDialog::Accepted)
+                {
+                    m_wallPos= dlg.selectedPos();
+                    emit wallpaperPositionChanged( m_wallPos);
+                }
+            }
+            );
+    connect(m_edtWallColorCurr, &QLineEdit::textChanged, this, [this](const QString &t)
+            {
+                updateSwatch(m_swatchWallCurr, t);
+            }
+            );
+    connect(m_btnOk, &QPushButton::clicked, this, [this]
+            {
+                QSettings s("MusicPlayer", "MusicPlayer");
+                QString oldMusicDir = s.value("musicDir").toString();
+                QString oldLyricsDir = s.value("lyricsDir").toString();
+                bool oldShowLyrics = s.value("showLyrics", false).toBool();
+                int oldVolume = s.value("volume", 70).toInt();
+                int oldMiniOpacity = s.value("miniOpacity", 140).toInt();
+                bool oldTray = s.value("minimizeToTray", false).toBool();
+                bool oldMini = s.value("enableMiniControl", true).toBool();
+                bool oldHideHover = s.value("hideOnHover", false).toBool();
+                QString oldSung = s.value("lyricColorSung", "#E63248").toString();
+                QString oldUnsang = s.value("lyricColorUnsang", "#F1DDDF").toString();
+                int oldFontSize = s.value("lyricFontSize", 28).toInt();
+                QString oldFontFamily = s.value("lyricFontFamily", "Microsoft YaHei").toString();
+                bool oldWallEnabled = s.value("wallpaperLyricsEnabled", false).toBool();
+                int oldWallOrient = s.value("wallpaperOrientation", 0).toInt();
+                int oldWallPos = s.value("wallpaperPosition", 7).toInt();
+                QString oldWallColorC = s.value("wallpaperColorCurrent", "#FFFFFF").toString();
+                QString oldWallColorO = s.value("wallpaperColorOther", "rgba(255,255,255,0.55)").toString();
+                bool oldWallShadow = s.value("wallpaperTextShadow", true).toBool();
+                int oldWallFont = s.value("wallpaperFontSize", 36).toInt();
+                int oldWallTitleFont= s.value("wallpaperTitleFontSize", 22).toInt();
+                int oldWallOpacity = s.value( "wallpaperOpacity", 255 ).toInt();
+                QString newMusicDir = m_edtMusic->text();
+                QString newLyricsDir = m_edtLyrics->text();
+                bool newShowLyrics = m_chkLyrics->isChecked();
+                int newVolume = m_volSlider->value();
+                int newMiniOpacity = m_miniOpacitySlider->value();
+                bool newTray = m_chkTray->isChecked();
+                bool newMini = m_chkMiniControl->isChecked();
+                bool newHideHover = m_chkHideHover->isChecked();
+                QString newSung = m_edtColorSung->text();
+                QString newUnsang = m_edtColorUnsang->text();
+                int newFontSize = m_lyricFontSlider->value();
+                QString newFontFamily = m_fontCombo->currentFont().family();
+                if (newSung.length() != 7) newSung = oldSung;
+                if (newUnsang.length() != 7) newUnsang = oldUnsang;
+                bool newWallEnabled = m_chkWallpaper->isChecked();
+                int newWallOrient = m_cmbOrientation->currentIndex();
+                s.setValue( "wallPosX", m_wallPos.x());
+                s.setValue( "wallPosY", m_wallPos.y());
+                QString newWallColorC = m_edtWallColorCurr->text();
+                int newWallFont = m_wallFontSlider->value();
+                int newWallTitleFont= m_wallTitleFontSlider->value();
+                int newWallOpacity = m_wallOpacitySlider->value();
+                s.setValue( "wallpaperOpacity", newWallOpacity );
+                if(oldWallOpacity!=newWallOpacity) emit wallpaperOpacityChanged( newWallOpacity );
+                s.setValue("musicDir", newMusicDir);
+                s.setValue("lyricsDir", newLyricsDir);
+                s.setValue("showLyrics", newShowLyrics);
+                s.setValue("volume", newVolume);
+                s.setValue("miniOpacity", newMiniOpacity);
+                s.setValue("minimizeToTray", newTray);
+                s.setValue("enableMiniControl", newMini);
+                s.setValue("hideOnHover", newHideHover);
+                s.setValue("lyricColorSung", newSung);
+                s.setValue("lyricColorUnsang", newUnsang);
+                s.setValue("lyricFontSize", newFontSize);
+                s.setValue("lyricFontFamily", newFontFamily);
+                s.setValue( "wallpaperOpacity", newWallOpacity );
+                if(oldWallOpacity!=newWallOpacity) emit wallpaperOpacityChanged( newWallOpacity );
+                s.setValue("wallpaperLyricsEnabled", newWallEnabled);
+                s.setValue("wallpaperOrientation", newWallOrient);
+                s.setValue( "wallPosX", m_wallPos.x());
+                s.setValue( "wallPosY", m_wallPos.y());
+                s.setValue("wallpaperColorCurrent", newWallColorC);
+                s.setValue("wallpaperFontSize", newWallFont);
+                s.setValue("wallpaperTitleFontSize", newWallTitleFont);
+                if (oldMusicDir != newMusicDir) emit musicDirChanged(newMusicDir);
+                if (oldLyricsDir != newLyricsDir) emit lyricsDirChanged(newLyricsDir);
+                if (oldShowLyrics != newShowLyrics) emit showLyricsChanged(newShowLyrics);
+                if (oldVolume != newVolume) emit volumeChanged(newVolume / 100.f);
+                if (oldMiniOpacity != newMiniOpacity)emit miniOpacityChanged(newMiniOpacity);
+                if (oldTray != newTray) emit minimizeToTrayChanged(newTray);
+                if (oldMini != newMini) emit miniControlChanged(newMini);
+                if (oldHideHover != newHideHover) emit hideOnHoverChanged(newHideHover);
+                if (oldSung != newSung || oldUnsang != newUnsang) emit lyricColorsChanged(newSung, newUnsang);
+                if (oldFontSize != newFontSize) emit lyricFontSizeChanged(newFontSize);
+                if (oldFontFamily != newFontFamily) emit lyricFontFamilyChanged(newFontFamily);
+                if(oldWallEnabled!=newWallEnabled) emit wallpaperLyricsEnabledChanged( newWallEnabled);
+                if (oldWallOrient != newWallOrient) emit wallpaperOrientationChanged(static_cast<LyricOrientation>( m_cmbOrientation->currentData().toInt()));
+                emit wallpaperPositionChanged(m_wallPos);
+                if (oldWallColorC != newWallColorC) emit wallpaperColorCurrentChanged(newWallColorC);
+                if (oldWallFont != newWallFont) emit wallpaperFontSizeChanged(newWallFont);
+                if (oldWallTitleFont != newWallTitleFont) emit wallpaperTitleFontSizeChanged(newWallTitleFont);
+                accept();
+            }
+            );
     connect(m_btnCancel, &QPushButton::clicked, this, &QDialog::reject);
-    // ── 读取已保存设置 ───────────────────────────────────────────
     QSettings s("MusicPlayer", "MusicPlayer");
     m_edtMusic->setText(s.value("musicDir").toString());
     m_edtLyrics->setText(s.value("lyricsDir").toString());
@@ -271,179 +373,352 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     m_miniOpacitySlider->setValue(s.value("miniOpacity", 140).toInt());
     m_volSlider->setValue(s.value("volume", 70).toInt());
     m_lyricFontSlider->setValue(s.value("lyricFontSize", 28).toInt());
+    m_wallOpacitySlider->setValue( s.value( "wallpaperOpacity", 255 ).toInt() );
     m_chkTray->setChecked(s.value("minimizeToTray", false).toBool());
     m_chkMiniControl->setChecked(s.value("enableMiniControl", true).toBool());
     m_chkHideHover->setChecked(s.value("hideOnHover", false).toBool());
-    QString sungColor   = s.value("lyricColorSung",   "#E63248").toString();
+    QString sungColor = s.value("lyricColorSung", "#E63248").toString();
     QString unsangColor = s.value("lyricColorUnsang", "#F1DDDF").toString();
     m_edtColorSung->setText(sungColor);
     m_edtColorUnsang->setText(unsangColor);
-    updateSwatch(m_swatchSung,   sungColor);
+    updateSwatch(m_swatchSung, sungColor);
     updateSwatch(m_swatchUnsang, unsangColor);
     QString savedFamily = s.value("lyricFontFamily", "Microsoft YaHei").toString();
     m_fontCombo->setCurrentFont(QFont(savedFamily));
+    m_chkWallpaper->setChecked(s.value("wallpaperLyricsEnabled", false).toBool());
+    m_cmbOrientation->setCurrentIndex(s.value("wallpaperOrientation", 0).toInt());
+    m_wallPos= QPoint( s.value( "wallPosX", 800).toInt(), s.value( "wallPosY", 500).toInt() );
+    m_wallFontSlider->setValue(s.value("wallpaperFontSize", 36).toInt());
+    m_wallTitleFontSlider->setValue(s.value("wallpaperTitleFontSize", 22).toInt());
+    QString wallColorC = s.value("wallpaperColorCurrent", "#FFFFFF").toString();
+    QString wallColorO = s.value("wallpaperColorOther", "rgba(255,255,255,0.55)").toString();
+    m_edtWallColorCurr->setText(wallColorC);
+    updateSwatch(m_swatchWallCurr, wallColorC);
 }
-// ── Getters ──────────────────────────────────────────────────────────────
-QString SettingsDialog::musicDir()         const { return m_edtMusic->text(); }
-QString SettingsDialog::lyricsDir()        const { return m_edtLyrics->text(); }
-bool    SettingsDialog::showLyrics()       const { return m_chkLyrics->isChecked(); }
-float   SettingsDialog::volume()           const { return m_volSlider->value() / 100.f; }
-bool    SettingsDialog::minimizeToTray()   const { return m_chkTray->isChecked(); }
-bool    SettingsDialog::hideOnHover()      const { return m_chkHideHover->isChecked(); }
-QString SettingsDialog::lyricColorSung()   const { return m_edtColorSung->text(); }
-QString SettingsDialog::lyricColorUnsang() const { return m_edtColorUnsang->text(); }
-int     SettingsDialog::lyricFontSize()    const { return m_lyricFontSlider->value(); }
-QString SettingsDialog::lyricFontFamily()  const { return m_fontCombo->currentFont().family(); }
-// ── Setters ──────────────────────────────────────────────────────────────
-void SettingsDialog::setMusicDir(const QString &d)         { m_edtMusic->setText(d); }
-void SettingsDialog::setLyricsDir(const QString &d)        { m_edtLyrics->setText(d); }
-void SettingsDialog::setShowLyrics(bool v)                 { m_chkLyrics->setChecked(v); }
-void SettingsDialog::setVolume(float v)                    { m_volSlider->setValue(qRound(v * 100)); }
-void SettingsDialog::setMinimizeToTray(bool v)             { m_chkTray->setChecked(v); }
-void SettingsDialog::setHideOnHover(bool v)                { m_chkHideHover->setChecked(v); }
-void SettingsDialog::setLyricFontSize(int v)               { m_lyricFontSlider->setValue(v); }
-void SettingsDialog::setLyricFontFamily(const QString &f)  { m_fontCombo->setCurrentFont(QFont(f)); }
-
+QString SettingsDialog::musicDir() const
+{
+    return m_edtMusic->text();
+}
+QString SettingsDialog::lyricsDir() const
+{
+    return m_edtLyrics->text();
+}
+bool SettingsDialog::showLyrics() const
+{
+    return m_chkLyrics->isChecked();
+}
+float SettingsDialog::volume() const
+{
+    return m_volSlider->value() / 100.f;
+}
+bool SettingsDialog::minimizeToTray() const
+{
+    return m_chkTray->isChecked();
+}
+bool SettingsDialog::hideOnHover() const
+{
+    return m_chkHideHover->isChecked();
+}
+QString SettingsDialog::lyricColorSung() const
+{
+    return m_edtColorSung->text();
+}
+QString SettingsDialog::lyricColorUnsang() const
+{
+    return m_edtColorUnsang->text();
+}
+int SettingsDialog::lyricFontSize() const
+{
+    return m_lyricFontSlider->value();
+}
+QString SettingsDialog::lyricFontFamily() const
+{
+    return m_fontCombo->currentFont().family();
+}
+bool SettingsDialog::wallpaperLyricsEnabled() const
+{
+    return m_chkWallpaper->isChecked();
+}
+LyricOrientation SettingsDialog::wallpaperOrientation() const
+{
+    return static_cast<LyricOrientation>(m_cmbOrientation->currentData().toInt());
+}
+QPoint SettingsDialog::wallpaperPosition() const
+{
+    return m_wallPos;
+}
+QString SettingsDialog::wallpaperColorCurrent() const
+{
+    return m_edtWallColorCurr->text();
+}
+int SettingsDialog::wallpaperFontSize() const
+{
+    return m_wallFontSlider->value();
+}
+int SettingsDialog::wallpaperTitleFontSize() const
+{
+    return m_wallTitleFontSlider->value();
+}
+void SettingsDialog::setMusicDir(const QString &d)
+{
+    m_edtMusic->setText(d);
+}
+void SettingsDialog::setLyricsDir(const QString &d)
+{
+    m_edtLyrics->setText(d);
+}
+void SettingsDialog::setShowLyrics(bool v)
+{
+    m_chkLyrics->setChecked(v);
+}
+void SettingsDialog::setVolume(float v)
+{
+    m_volSlider->setValue(qRound(v * 100));
+}
+void SettingsDialog::setMinimizeToTray(bool v)
+{
+    m_chkTray->setChecked(v);
+}
+void SettingsDialog::setHideOnHover(bool v)
+{
+    m_chkHideHover->setChecked(v);
+}
+void SettingsDialog::setLyricFontSize(int v)
+{
+    m_lyricFontSlider->setValue(v);
+}
+void SettingsDialog::setLyricFontFamily(const QString &f)
+{
+    m_fontCombo->setCurrentFont(QFont(f));
+}
+void SettingsDialog::setLyricColorSung(const QString &h)
+{
+    m_edtColorSung->setText(h); updateSwatch(m_swatchSung, h);
+}
+void SettingsDialog::setLyricColorUnsang(const QString &h)
+{
+    m_edtColorUnsang->setText(h); updateSwatch(m_swatchUnsang, h);
+}
+void SettingsDialog::setWallpaperLyricsEnabled(bool v)
+{
+    m_chkWallpaper->setChecked(v);
+}
+void SettingsDialog::setWallpaperOrientation(LyricOrientation o)
+{
+    for (int i = 0; i < m_cmbOrientation->count(); ++i) if (m_cmbOrientation->itemData(i).toInt() == static_cast<int>(o))
+        {
+            m_cmbOrientation->setCurrentIndex(i); break;
+        }
+}
+void SettingsDialog::setWallpaperPosition(QPoint p)
+{
+    m_wallPos = p;
+}
+void SettingsDialog::setWallpaperColorCurrent(const QString &h)
+{
+    m_edtWallColorCurr->setText(h); updateSwatch(m_swatchWallCurr, h);
+}
+void SettingsDialog::setWallpaperFontSize(int v)
+{
+    m_wallFontSlider->setValue(v);
+}
+void SettingsDialog::setWallpaperTitleFontSize(int v)
+{
+    m_wallTitleFontSlider->setValue(v);
+}
 void SettingsDialog::loadSavedFonts()
 {
-    // 先加载内置默认字体（与可执行文件同目录）
     QString naikaiPath = QCoreApplication::applicationDirPath() + "/naikai.ttf";
-    if (QFile::exists(naikaiPath))
-        QFontDatabase::addApplicationFont(naikaiPath);
-
+    if (QFile::exists(naikaiPath)) QFontDatabase::addApplicationFont(naikaiPath);
     QSettings s("MusicPlayer", "MusicPlayer");
     const QStringList paths = s.value("importedFontPaths").toStringList();
     QStringList valid;
-    for (const QString &path : paths) {
+    for (const QString &path : paths)
+    {
         if (!QFile::exists(path)) continue;
         QFontDatabase::addApplicationFont(path);
         valid << path;
     }
-    if (valid.size() != paths.size())
-        s.setValue("importedFontPaths", valid);
+    if (valid.size() != paths.size()) s.setValue("importedFontPaths", valid);
 }
-void SettingsDialog::setLyricColorSung(const QString &h)   { m_edtColorSung->setText(h);   updateSwatch(m_swatchSung,   h); }
-void SettingsDialog::setLyricColorUnsang(const QString &h) { m_edtColorUnsang->setText(h); updateSwatch(m_swatchUnsang, h); }
-// ── Helpers ───────────────────────────────────────────────────────────────
-void SettingsDialog::updateSwatch(QLabel *swatch, const QString &hex) {
+void SettingsDialog::updateSwatch(QLabel *swatch, const QString &hex)
+{
     QColor c(hex);
-    if (c.isValid())
-        swatch->setStyleSheet(QString("background:%1;border-radius:4px;border:1px solid #3a3860;").arg(hex));
-    else
-        swatch->setStyleSheet("background:#2a2a40;border-radius:4px;border:1px solid #3a3860;");
+    if (c.isValid()) swatch->setStyleSheet(QString("background:%1;border-radius:4px;border:1px solid #3a3860;").arg(hex));
+    else swatch->setStyleSheet("background:#2a2a40;border-radius:4px;border:1px solid #3a3860;");
 }
-void SettingsDialog::applyStyle() {
-    setStyleSheet(R"(
-QDialog {
-    background: #13151f;
-    color: #c8c5e0;
-    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
-}
-QLabel#dlgTitle {
-    font-size: 18px;
-    font-weight: bold;
-    color: #e0ddf8;
-    margin-bottom: 4px;
-}
-QLabel {
-    color: #9890c0;
-    font-size: 13px;
-}
-QLabel#aboutLabel {
-    color: rgba(180,180,210,60);
-    font-size: 9px;
-    line-height: 12px;
-}
-QLabel#aboutLabel a { color: rgba(180,180,210,60); text-decoration:none; }
-QLabel#aboutLabel a:hover { color: rgba(180,180,210,100); }
-QLineEdit {
-    background: #1c1f30;
-    border: 1px solid #2a2e50;
-    border-radius: 8px;
-    color: #c0bde0;
-    min-height: 28px;
-    max-height: 28px;
-    padding-left: 12px;
-    padding-right: 12px;
-    font-size: 14px;
-}
-QLineEdit#colorEdit {
-    min-height: 24px;
-    max-height: 24px;
-    padding: 2px 4px 2px 2px;
-    font-family: "Consolas", "Courier New", monospace;
-    font-size: 12px;
-    letter-spacing: 1px;
-}
-QLineEdit:focus { border-color: #5a50b0; }
-QPushButton#browseBtn {
-    background: #22263a;
-    border: 1px solid #2e3258;
-    border-radius: 6px;
-    color: #9090c0;
-    font-size: 12px;
-    padding: 5px;
-}
-QPushButton#browseBtn:hover { background: #2a2f4a; color: #c0b8f0; }
-QCheckBox#settingsCheck {
-    color: #a8a0d0;
-    font-size: 13px;
-    spacing: 8px;
-}
-QCheckBox#settingsCheck::indicator {
-    width: 16px; height: 16px;
-    border: 1px solid #3a3860;
-    border-radius: 4px;
-    background: #1c1f30;
-}
-QCheckBox#settingsCheck::indicator:checked {
-    background: #6050c0;
-    border-color: #7060d8;
-}
-QSlider#settingsSlider::groove:horizontal {
-    height: 4px; background: #252840; border-radius: 2px;
-}
-QSlider#settingsSlider::sub-page:horizontal {
-    background: #5a50c0; border-radius: 2px;
-}
-QSlider#settingsSlider::handle:horizontal {
-    width: 12px; height: 12px; margin: -4px 0;
-    background: #a090f0; border-radius: 6px;
-}
-QFontComboBox#fontCombo {
-    background: #1c1f30;
-    border: 1px solid #2a2e50;
-    border-radius: 8px;
-    color: #c0bde0;
-    min-height: 28px;
-    max-height: 28px;
-    padding-left: 8px;
-    font-size: 13px;
-}
-QFontComboBox#fontCombo:focus { border-color: #5a50b0; }
-QFontComboBox#fontCombo QAbstractItemView {
-    background: #1c1f30;
-    border: 1px solid #2a2e50;
-    color: #c0bde0;
-    selection-background-color: #3a3070;
-}
-QPushButton#dlgBtn {
-    background: #1e2138;
-    border: 1px solid #2e3258;
-    border-radius: 8px;
-    color: #9090c0;
-    font-size: 13px;
-}
-QPushButton#dlgBtn:hover { background: #262a42; color: #c0b8f0; }
-QPushButton#dlgBtnPrimary {
-    background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
-        stop:0 #6050c8, stop:1 #4838a0);
-    border: none;
-    border-radius: 8px;
-    color: white;
-    font-size: 13px;
-    font-weight: bold;
-}
-QPushButton#dlgBtnPrimary:hover { background: #7060d8; }
-)");
+void SettingsDialog::applyStyle()
+{
+    setStyleSheet(R"( QDialog
+    {
+        background:qlineargradient( x1:0,y1:0,x2:1,y2:1, stop:0 #10131d, stop:0.5 #161b29, stop:1 #1b1d35 );
+        color:#E5E8FF;
+        font-family:"Microsoft YaHei";
+    }
+    QScrollArea
+    {
+        border:none;
+        background:transparent;
+    }
+    QScrollArea>QWidget>QWidget
+    {
+        background:transparent;
+    }
+    QLabel
+    {
+        color:#BFC5F7;
+        font-size:13px;
+    }
+    QLineEdit
+    {
+        background:rgba(35,40,65,0.85);
+        border:1px solid rgba(90,100,180,0.4);
+        border-radius:12px;
+        color:white;
+        min-height:34px;
+        padding-left:14px;
+        padding-right:14px;
+        font-size:13px;
+    }
+    QLineEdit:hover
+    {
+        border:1px solid rgba(110,120,220,0.8);
+    }
+    QLineEdit:focus
+    {
+        border:1px solid #7A6BFF;
+    }
+    QFontComboBox, QComboBox#wallCombo
+    {
+        background:rgba(35,40,65,0.85);
+        border:1px solid rgba(90,100,180,0.4);
+        border-radius:12px;
+        color:white;
+        min-height:34px;
+        padding-left:10px;
+    }
+    QFontComboBox:hover, QComboBox#wallCombo:hover
+    {
+        border:1px solid #7A6BFF;
+    }
+    QComboBox QAbstractItemView, QFontComboBox QAbstractItemView
+    {
+        background:#20253a;
+        border:1px solid #303860;
+        color:white;
+        selection-background-color:#6658F0;
+    }
+    QPushButton#browseBtn
+    {
+        background:qlineargradient( x1:0,y1:0, x2:1,y2:1, stop:0 #2F3555, stop:1 #242944 );
+        border:none;
+        border-radius:10px;
+        color:#D8DCFF;
+        font-size:12px;
+        padding:6px 12px;
+    }
+    QPushButton#browseBtn:hover
+    {
+        background:qlineargradient( x1:0,y1:0, x2:1,y2:1, stop:0 #4A56AA, stop:1 #6559F4 );
+    }
+    QPushButton#browseBtn:pressed
+    {
+        padding-top:8px;
+    }
+    QPushButton#dlgBtn
+    {
+        background:#232741;
+        border:none;
+        border-radius:12px;
+        color:#C7CBF5;
+    }
+    QPushButton#dlgBtn:hover
+    {
+        background:#30375D;
+    }
+    QPushButton#dlgBtnPrimary
+    {
+        background:qlineargradient( x1:0,y1:0, x2:1,y2:1, stop:0 #7568FF, stop:1 #9B5CFF );
+        border:none;
+        border-radius:12px;
+        font-weight:bold;
+        color:white;
+    }
+    QPushButton#dlgBtnPrimary:hover
+    {
+        background:qlineargradient( x1:0,y1:0, x2:1,y2:1, stop:0 #8A7FFF, stop:1 #AD73FF );
+    }
+    QCheckBox
+    {
+        color:#D2D6FF;
+        spacing:8px;
+    }
+    QCheckBox::indicator
+    {
+        width:18px;
+        height:18px;
+        border-radius:6px;
+        border:1px solid #555C88;
+        background:#232741;
+    }
+    QCheckBox::indicator:checked
+    {
+        background:#7B6DFF;
+        border:none;
+    }
+    QSlider::groove:horizontal
+    {
+        background:#242942;
+        height:6px;
+        border-radius:3px;
+    }
+    QSlider::sub-page:horizontal
+    {
+        background:qlineargradient( x1:0,y1:0, x2:1,y2:0, stop:0 #7164FF, stop:1 #A46EFF );
+        border-radius:3px;
+    }
+    QSlider::handle:horizontal
+    {
+        width:18px;
+        margin:-6px 0;
+        border-radius:9px;
+        background:white;
+    }
+   QGroupBox#wallGroup
+    {
+        background:rgba(30,35,60,0.55);
+        border:1px solid rgba(110,120,200,0.35);
+        border-radius:18px;
+        margin-top:14px;
+        padding-top:14px;
+    }
+    QGroupBox#wallGroup::title
+    {
+        subcontrol-origin:margin;
+        left:16px;
+        padding:0px 10px;
+        color:#D7D9FF;
+        font-size:14px;
+        font-weight:bold;
+    }
+     QLabel#colorSwatch
+    {
+        border-radius:8px;
+        border:2px solid rgba(255,255,255,0.2);
+    }
+    QScrollBar:vertical
+    {
+        width:8px;
+        background:transparent;
+    }
+    QScrollBar::handle:vertical
+    {
+        background:#5358A8;
+        border-radius:4px;
+    }
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical
+    {
+        height:0;
+    }
+    )");
 }
