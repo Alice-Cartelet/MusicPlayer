@@ -3,15 +3,16 @@
 ![Qt](https://img.shields.io/badge/Qt-%23217346.svg?style=for-the-badge&logo=Qt&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)
 
-基于 Qt 6 开发的简洁本地音乐播放器，有半透明磨砂效果，功能极简，仅有附加桌面歌词显示功能。
-<img width="1381" height="1008" alt="屏幕截图 2026-05-20 194615" src="https://github.com/user-attachments/assets/312a05e2-8a98-480e-bdc3-5e48236ab025" />
+基于 Qt 6 开发的简洁本地音乐播放器，有半透明磨砂效果，功能极简，有附加桌面歌词显示功能，并可以嵌入桌面壁纸作为壁纸一部分。
+<img width="1436" height="1059" alt="屏幕截图 2026-05-25 204412" src="https://github.com/user-attachments/assets/c485933e-efbc-4b97-aa8a-87ca12b52ed0" />
+
 
 
 
 ---
 # 🎵 MusicPlayer
 
-一个基于 Qt 开发的现代化桌面音乐播放器，支持歌词逐字高亮、专辑封面显示、毛玻璃 UI、美化动画与播放进度记忆等功能，兼顾视觉体验与日常使用。
+一个基于 Qt 开发的现代化桌面音乐播放器，支持歌词逐字高亮、专辑封面显示、毛玻璃 UI、美化动画与播放进度记忆等功能，并具有嵌入桌面壁纸，淡入淡出歌词的功能，兼顾视觉体验与日常使用。
 
 ---
 
@@ -74,16 +75,18 @@
   * 新增设置创建一个小控制窗，这个窗口将永远处于最上层避免被覆盖，并且可以修改其透明度。
   * 新增添加歌词编辑功能，在主界面最右侧✏按钮可编辑歌词，没有歌词文件时将创建。
   * 新增创建歌单工具，你可以建立自己的播放歌单。
+  * 新增桌面嵌入式壁纸歌词功能。
   * 高 DPI 显示优化。
 
 ---
 
 ## 📸 界面展示 (Screenshots)
 
-| 主播放界面 | 修改界面 |
-| :---: | :---: |
-| <img width="1381" height="1008" alt="屏幕截图 2026-05-20 194615" src="https://github.com/user-attachments/assets/312a05e2-8a98-480e-bdc3-5e48236ab025" /> | <img width="1232" height="1078" alt="屏幕截图 2026-05-20 101247" src="https://github.com/user-attachments/assets/75134249-fca6-49fe-aa0e-1967ac4749dd" /> |
-| *播放器主界面截图* | *修改界面* |
+| 主播放界面 | 设置界面 | 桌面工具 |
+| :---: | :---: | :---: |
+| <img width="1436" height="1059" alt="屏幕截图 2026-05-25 204412" src="https://github.com/user-attachments/assets/c485933e-efbc-4b97-aa8a-87ca12b52ed0" /> | <img width="1148" height="1231" alt="屏幕截图 2026-05-25 204649" src="https://github.com/user-attachments/assets/39b8b580-2e71-4208-9dbe-bb7f0b5c5f15" />
+ | ![Uploading 屏幕截图 2026-05-25 204614.png…]()
+ |
 
 ---
 
