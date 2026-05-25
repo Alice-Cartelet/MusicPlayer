@@ -84,9 +84,7 @@
 
 | 主播放界面 | 设置界面 | 桌面工具 |
 | :---: | :---: | :---: |
-| <img width="1436" height="1059" alt="屏幕截图 2026-05-25 204412" src="https://github.com/user-attachments/assets/c485933e-efbc-4b97-aa8a-87ca12b52ed0" /> | <img width="1148" height="1231" alt="屏幕截图 2026-05-25 204649" src="https://github.com/user-attachments/assets/39b8b580-2e71-4208-9dbe-bb7f0b5c5f15" />
- | ![Uploading 屏幕截图 2026-05-25 204614.png…]()
- |
+| <img width="1436" height="1059" alt="屏幕截图 2026-05-25 204412" src="https://github.com/user-attachments/assets/c485933e-efbc-4b97-aa8a-87ca12b52ed0" /> | <img width="1148" height="1231" alt="屏幕截图 2026-05-25 204649" src="https://github.com/user-attachments/assets/39b8b580-2e71-4208-9dbe-bb7f0b5c5f15" /> | <img width="2558" height="1534" alt="屏幕截图 2026-05-25 204614" src="https://github.com/user-attachments/assets/28cd2268-b2cb-40e6-9c8b-7b2f6d3c8aae" /> |
 
 ---
 
