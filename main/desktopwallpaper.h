@@ -30,7 +30,6 @@ enum class LyricPosition
 };
 class RotatedLabel : public QLabel
 {
-    Q_OBJECT
 public:
     explicit RotatedLabel(QWidget *parent=nullptr)
         : QLabel(parent)
@@ -118,21 +117,21 @@ protected:
     QSize measureVerticalText(const QFont &f) const
     {
         QFontMetrics fm(f);
+        const int lineH = fm.lineSpacing();
         int maxWidth = 0;
         int totalHeight = 0;
         QString latin;
         auto flushLatin = [&]()
         {
             if(latin.isEmpty()) return;
-            int w = fm.boundingRect(latin).width();
-            totalHeight += w + 6;
-            maxWidth = qMax(maxWidth, fm.height() + 8);
+            // Latin run is rotated 90 deg: advance width becomes vertical height
+            int w = fm.horizontalAdvance(latin);
+            totalHeight += w + lineH / 4;
+            maxWidth = qMax(maxWidth, lineH);
             latin.clear();
         };
         const QString src = text();
-        QTextBoundaryFinder finder(
-            QTextBoundaryFinder::Grapheme,
-            src);
+        QTextBoundaryFinder finder(QTextBoundaryFinder::Grapheme, src);
         int start = 0;
         while(finder.toNextBoundary() != -1)
         {
@@ -142,7 +141,7 @@ protected:
             if(cluster == "\n")
             {
                 flushLatin();
-                totalHeight += fm.height();
+                totalHeight += lineH;
                 continue;
             }
             if(isLatinWordChar(cluster))
@@ -153,12 +152,13 @@ protected:
             flushLatin();
             if(cluster.trimmed().isEmpty())
             {
-                totalHeight += qMax(2, fm.height() / 2);
+                totalHeight += lineH / 2;
                 continue;
             }
             QChar first = cluster.at(0);
-            maxWidth = qMax(maxWidth,fm.boundingRect(QString(verticalGlyph(first))).width() + 8);
-            totalHeight += fm.height();
+            maxWidth = qMax(maxWidth,
+                            fm.horizontalAdvance(QString(verticalGlyph(first))) + 8);
+            totalHeight += lineH;
         }
         flushLatin();
         return QSize(maxWidth + 8, totalHeight + 8);
@@ -217,17 +217,23 @@ protected:
         const QString src = text();
         int y = 0;
         QString latin;
+        const int lineH = fm.lineSpacing();
         auto drawLatinRun = [&]()
         {
-            if(latin.isEmpty())return;
-            int textW = fm.boundingRect(latin).width();
+            if(latin.isEmpty()) return;
+            int textW = fm.horizontalAdvance(latin);
             int textH = fm.height();
+            // Rotate 90 deg so Latin reads bottom-to-top, centred in column
             p.save();
-            p.translate(width() / 2, y);
+            // translate to: horizontally centred, vertically at current y
+            p.translate(width() / 2, y + textW / 2);
             p.rotate(90);
-            p.drawText( QRect(0, -textH / 2, textW, textH), Qt::AlignLeft | Qt::AlignVCenter, latin );
+            // after rotation: x axis points down, y axis points left
+            // draw text so it starts at the rotated origin
+            p.drawText(QRect(-textW / 2, -textH / 2, textW, textH),
+                       Qt::AlignHCenter | Qt::AlignVCenter, latin);
             p.restore();
-            y += textW + 6;
+            y += textW + lineH / 4;
             latin.clear();
         };
         QTextBoundaryFinder finder(QTextBoundaryFinder::Grapheme,src);
@@ -240,7 +246,7 @@ protected:
             if(cluster == "\n")
             {
                 drawLatinRun();
-                y += fm.height();
+                y += lineH;
                 continue;
             }
             if(isLatinWordChar(cluster))
@@ -251,12 +257,12 @@ protected:
             drawLatinRun();
             if(cluster.trimmed().isEmpty())
             {
-                y += qMax(2, fm.height() / 2);
+                y += lineH / 2;
                 continue;
             }
             QChar first = cluster.at(0);
-            p.drawText( QRect(0, y, width(), fm.height()), Qt::AlignCenter, QString(verticalGlyph(first)) );
-            y += fm.height();
+            p.drawText(QRect(0, y, width(), lineH), Qt::AlignCenter, QString(verticalGlyph(first)));
+            y += lineH;
         }
         drawLatinRun();
     }

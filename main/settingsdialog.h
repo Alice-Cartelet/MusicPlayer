@@ -91,6 +91,7 @@ private: void applyStyle();
     QCheckBox *m_chkWallpaper=nullptr;
     QComboBox *m_cmbOrientation=nullptr;
     QPushButton *m_btnPickPosition=nullptr;
+    QLabel      *m_lblWallPos=nullptr;
     QPoint m_wallPos=
         {
             800,500
