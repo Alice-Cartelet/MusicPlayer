@@ -416,7 +416,7 @@ protected: void mouseMoveEvent(QMouseEvent *e) override
 #else
         QPointF vpos = e->localPos();
 #endif
-if (m_trails.isEmpty() || (vpos - m_trails.last().pos).manhattanLength() > 6.0)
+        if (m_trails.isEmpty() || (vpos - m_trails.last().pos).manhattanLength() > 6.0)
         {
             TrailEntry te;
             te.pos = vpos;
@@ -625,6 +625,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
             );
     connect( m_settingsDlg, &SettingsDialog::wallpaperFontSizeChanged, m_wallpaperLyrics, &DesktopWallpaperLyrics::setFontSize );
     connect( m_settingsDlg, &SettingsDialog::wallpaperTitleFontSizeChanged, m_wallpaperLyrics, &DesktopWallpaperLyrics::setTitleFontSize );
+    connect( m_settingsDlg, &SettingsDialog::wallpaperMaxHeightPercentChanged, this, [this](int pct)
+            {
+                m_wallpaperLyrics->setMaxHeightRatio(pct / 100.0f);
+            });
     connect(m_settingsDlg, &SettingsDialog::lyricFontFamilyChanged, this, [this](const QString &family)
             {
                 m_lyricsOverlay->setFontFamily(family);
@@ -756,6 +760,7 @@ void MainWindow::initWallpaperLyrics()
     m_wallpaperLyrics->setFontFamily( s.value( "lyricFontFamily", "Microsoft YaHei" ).toString() );
     m_wallpaperLyrics->setFontSize( s.value("wallpaperFontSize", 36).toInt() );
     m_wallpaperLyrics->setTitleFontSize( s.value("wallpaperTitleFontSize", 22).toInt() );
+    m_wallpaperLyrics->setMaxHeightRatio( s.value("wallpaperMaxHeightPercent", 75).toInt() / 100.0f );
     m_wallpaperLyrics->setEnabled( s.value( "wallpaperLyricsEnabled", false ).toBool() );
 }
 void MainWindow::setupPlayer()

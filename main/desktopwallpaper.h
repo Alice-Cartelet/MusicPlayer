@@ -47,6 +47,18 @@ public:
     {
         return m_vertical;
     }
+    // 供 applyTextStyle 调用，确保竖排 paintEvent 也能取到正确颜色
+    void setTextColor(const QString &hex)
+    {
+        m_textColor = QColor(hex);
+        update();
+    }
+    void setMaxHeightRatio(float r)
+    {
+        m_maxHeightRatio = qBound(0.1f, r, 1.0f);
+        updateGeometry();
+        update();
+    }
 protected:
     static bool isLatinWordChar(const QString &cluster)
     {
@@ -108,11 +120,11 @@ protected:
             };
         return verticalMap.value(c, c);
     }
-    static int verticalMaxHeight()
+    int verticalMaxHeight() const
     {
         const QScreen *screen = QApplication::primaryScreen();
         if(!screen) return 800;
-        return screen->geometry().height() * 3 / 4;
+        return int(screen->geometry().height() * m_maxHeightRatio);
     }
     QSize measureVerticalText(const QFont &f) const
     {
@@ -211,7 +223,11 @@ protected:
 #endif
         QFont drawFont = fittedVerticalFont();
         p.setFont(drawFont);
-        const QColor penColor = palette().color(QPalette::WindowText);
+        // 优先用显式设置的颜色；fallback 到 palette（横排模式由 stylesheet 驱动，
+        // 竖排走自定义 paintEvent，必须用 m_textColor 才能生效）
+        const QColor penColor = m_textColor.isValid()
+                                    ? m_textColor
+                                    : palette().color(QPalette::WindowText);
         p.setPen(penColor);
         QFontMetrics fm(drawFont);
         const QString src = text();
@@ -268,6 +284,8 @@ protected:
     }
 private:
     bool m_vertical = false;
+    QColor m_textColor;  // 显式颜色，用于竖排 paintEvent
+    float m_maxHeightRatio = 0.75f;
 };
 class DesktopWallpaperLyrics : public QObject
 {
@@ -291,6 +309,7 @@ public:
     void setColorOther(const QString&);
     void setTextShadow(bool);
     void setTrackTitle(const QString &title);
+    void setMaxHeightRatio(float ratio);
 private:
     void applyAsWallpaper();
     void updateLayout();
@@ -317,4 +336,5 @@ private:
     LyricOrientation m_orientation = LyricOrientation::Horizontal;
     bool m_showStartupText = false;
     QGraphicsOpacityEffect *m_fx = nullptr;
+    float m_maxHeightRatio = 0.75f;
 };

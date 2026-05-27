@@ -18,10 +18,9 @@ static void applyTextStyle(QLabel *label, const QString &family, int pixelSize, 
     f.setPixelSize(pixelSize);
     f.setBold(bold);
     label->setFont(f);
-    QPalette pal = label->palette();
-    pal.setColor(QPalette::WindowText, QColor(color));
-    label->setPalette(pal);
-    label->setStyleSheet("background:transparent;");
+    label->setStyleSheet(QString("background: transparent; color: %1;").arg(color));
+    if(auto *rl = dynamic_cast<RotatedLabel*>(label))
+        rl->setTextColor(color);
 }
 DesktopWallpaperLyrics:: DesktopWallpaperLyrics(QObject *parent) : QObject(parent)
 {
@@ -55,11 +54,11 @@ DesktopWallpaperLyrics:: DesktopWallpaperLyrics(QObject *parent) : QObject(paren
     m_currentLine = "Alice-Cartelet";
     updateLayout();
     QTimer::singleShot( 1000, this, [this]
-    {
-        m_showStartupText = false;
-        m_currentLine.clear();
-        m_curLabel->clear();
-    });
+                       {
+                           m_showStartupText = false;
+                           m_currentLine.clear();
+                           m_curLabel->clear();
+                       });
 }
 DesktopWallpaperLyrics:: ~DesktopWallpaperLyrics()
 {
@@ -108,8 +107,10 @@ void DesktopWallpaperLyrics:: updateLyrics( const QString&, const QString& cur, 
 }
 void DesktopWallpaperLyrics:: updateLayout()
 {
+    m_curLabel->setMaxHeightRatio(m_maxHeightRatio);
+    m_titleLabel->setMaxHeightRatio(m_maxHeightRatio);
     QString lyricText = m_currentLine;
-    m_curLabel ->setVerticalMode( m_orientation == LyricOrientation::Vertical && !m_showStartupText);
+    m_curLabel ->setVerticalMode( m_orientation == LyricOrientation::Vertical);
     m_curLabel ->setText( lyricText);
     applyTextStyle( m_curLabel, m_fontFamily, m_fontSize, m_colorCurrent, true);
     m_curLabel ->adjustSize();
@@ -128,7 +129,7 @@ void DesktopWallpaperLyrics:: updateLayout()
     }
     else
     {
-        int tx= m_customPos.x() + (m_curLabel->width() - m_titleLabel->width())/2;
+        int tx= m_customPos.x();
         int ty= m_customPos.y() - m_titleLabel->height() - spacing;
         m_titleLabel->move( tx, ty);
     }
@@ -287,3 +288,11 @@ void DesktopWallpaperLyrics::applyAsWallpaper()
 #endif
 }
 void DesktopWallpaperLyrics::playFade(){}
+
+void DesktopWallpaperLyrics::setMaxHeightRatio(float ratio)
+{
+    m_maxHeightRatio = qBound(0.1f, ratio, 1.0f);
+    m_curLabel->setMaxHeightRatio(m_maxHeightRatio);
+    m_titleLabel->setMaxHeightRatio(m_maxHeightRatio);
+    updateLayout();
+}

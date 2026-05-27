@@ -18,31 +18,37 @@
 #include <QWheelEvent>
 #include <QComboBox>
 #include <QFontComboBox>
+
 namespace {
 class NoWheelSlider : public QSlider
 {
 public:
     using QSlider::QSlider;
+
 protected:
     void wheelEvent(QWheelEvent *event) override
     {
         event->ignore();
     }
 };
+
 class NoWheelFontComboBox : public QFontComboBox
 {
 public:
     using QFontComboBox::QFontComboBox;
+
 protected:
     void wheelEvent(QWheelEvent *event) override
     {
         event->ignore();
     }
 };
+
 class NoWheelComboBox : public QComboBox
 {
 public:
     using QComboBox::QComboBox;
+
 protected:
     void wheelEvent(QWheelEvent *event) override
     {
@@ -50,12 +56,15 @@ protected:
     }
 };
 }
+
 SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
 {
     setWindowTitle("设置");
     setModal(true);
-    resize(600,430);
-    setMinimumSize(600,430);
+    resize(597,430);
+    //setMinimumSize(760,680);
+
+    // ── 滚动容器 ──────────────────────────────────────────────
     QVBoxLayout *rootOuter = new QVBoxLayout(this);
     rootOuter->setContentsMargins(0, 0, 0, 0);
     rootOuter->setSpacing(0);
@@ -68,7 +77,9 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     scroll->setWidget(inner);
     QVBoxLayout *root = new QVBoxLayout(inner);
     root->setContentsMargins(18, 20, 18, 12);
-    root->setSpacing(16);
+    root->setSpacing(18);
+
+    // ── 颜色行辅助 lambda ─────────────────────────────────────
     auto makeColorRow = [&](QLineEdit *&edt, QLabel *&swatch, const QString &defaultHex) -> QHBoxLayout*
     {
         QHBoxLayout *row = new QHBoxLayout;
@@ -89,6 +100,9 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
         row->addWidget(swatch, 0, Qt::AlignVCenter);
         return row;
     };
+
+    // ── 滑块行辅助 lambda ──────────────────────────────────────
+    // unit: "px" / "%" / "opacity"(255->%)
     auto makeSliderRow = [&](QSlider *slider, const QString &unit) -> QHBoxLayout*
     {
         QHBoxLayout *row = new QHBoxLayout;
@@ -112,11 +126,26 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
         row->addWidget(valLbl);
         return row;
     };
+
+    auto makeLeftLabel = [](const QString &text) -> QLabel*
+    {
+        QLabel *lbl = new QLabel(text);
+        lbl->setFixedWidth(72);
+        lbl->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        lbl->setStyleSheet("background:transparent; color:#BFC5F7; font-size:13px;");
+        return lbl;
+    };
+    // ══════════════════════════════════════════════════════════
     QGroupBox *grpGeneral = new QGroupBox("⚙️  常规");
     grpGeneral->setObjectName("settingsGroup");
     QFormLayout *genForm = new QFormLayout(grpGeneral);
-    genForm->setSpacing(12);
-    genForm->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    genForm->setContentsMargins(12, 10, 12, 12);
+    genForm->setHorizontalSpacing(20);
+    genForm->setVerticalSpacing(14);
+    genForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+    genForm->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+
+    // 音乐目录
     QHBoxLayout *musicRow = new QHBoxLayout;
     m_edtMusic = new QLineEdit;
     m_edtMusic->setPlaceholderText("选择音乐文件夹…");
@@ -127,7 +156,9 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     musicRow->addWidget(m_edtMusic, 1);
     musicRow->addWidget(m_btnMusic);
     musicRow->setSpacing(12);
-    genForm->addRow("音乐目录：", musicRow);
+    genForm->addRow(makeLeftLabel("音乐目录："), musicRow);
+
+    // 歌词目录
     QHBoxLayout *lyricsRow = new QHBoxLayout;
     m_edtLyrics = new QLineEdit;
     m_edtLyrics->setPlaceholderText("选择歌词文件夹（与音乐目录相同则留空）…");
@@ -138,40 +169,60 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     lyricsRow->addWidget(m_edtLyrics, 1);
     lyricsRow->addWidget(m_btnLyrics);
     lyricsRow->setSpacing(14);
-    genForm->addRow("歌词目录：", lyricsRow);
+    genForm->addRow(makeLeftLabel("歌词目录："), lyricsRow);
+
+    // 音量
     m_volSlider = new NoWheelSlider(Qt::Horizontal);
     m_volSlider->setObjectName("settingsSlider");
     m_volSlider->setRange(0, 100);
     m_volSlider->setValue(70);
-    genForm->addRow("应用音量：", makeSliderRow(m_volSlider, "%"));
+    genForm->addRow(makeLeftLabel("APP 内音量："), makeSliderRow(m_volSlider, "%"));
+
+    // 行为开关
     m_chkTray = new QCheckBox("最小化时缩到系统托盘");
     m_chkTray->setObjectName("settingsCheck");
     genForm->addRow("", m_chkTray);
+
     m_chkMiniControl = new QCheckBox("启用小控制窗");
     m_chkMiniControl->setObjectName("settingsCheck");
     genForm->addRow("", m_chkMiniControl);
+
     m_miniOpacitySlider = new NoWheelSlider(Qt::Horizontal);
     m_miniOpacitySlider->setObjectName("settingsSlider");
     m_miniOpacitySlider->setRange(20, 255);
     m_miniOpacitySlider->setValue(85);
-    genForm->addRow("小窗透明：", makeSliderRow(m_miniOpacitySlider, "opacity"));
+    genForm->addRow(makeLeftLabel("小窗透明度："), makeSliderRow(m_miniOpacitySlider, "opacity"));
+
     root->addWidget(grpGeneral);
+
+    // ══════════════════════════════════════════════════════════
+    // 分组二：悬浮歌词
+    // ══════════════════════════════════════════════════════════
     QGroupBox *grpLyric = new QGroupBox("🎵  悬浮歌词");
     grpLyric->setObjectName("settingsGroup");
     QFormLayout *lyricForm = new QFormLayout(grpLyric);
-    lyricForm->setSpacing(12);
-    lyricForm->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    lyricForm->setContentsMargins(12, 10, 12, 12);
+    lyricForm->setHorizontalSpacing(20);
+    lyricForm->setVerticalSpacing(14);
+    lyricForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+    lyricForm->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+
     m_chkLyrics = new QCheckBox("启用桌面悬浮歌词");
     m_chkLyrics->setObjectName("settingsCheck");
     lyricForm->addRow("", m_chkLyrics);
+
     m_chkHideHover = new QCheckBox("鼠标悬停时自动隐藏（开启后无法拖动）");
     m_chkHideHover->setObjectName("settingsCheck");
     lyricForm->addRow("", m_chkHideHover);
+
+    // 歌词字号
     m_lyricFontSlider = new NoWheelSlider(Qt::Horizontal);
     m_lyricFontSlider->setObjectName("settingsSlider");
     m_lyricFontSlider->setRange(18, 60);
     m_lyricFontSlider->setValue(28);
-    lyricForm->addRow("歌词字号：", makeSliderRow(m_lyricFontSlider, "px"));
+    lyricForm->addRow(makeLeftLabel("歌词字号："), makeSliderRow(m_lyricFontSlider, "px"));
+
+    // 歌词字体
     loadSavedFonts();
     QHBoxLayout *fontRow = new QHBoxLayout;
     fontRow->setSpacing(8);
@@ -194,7 +245,9 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     m_btnImportFont->setFixedSize(72, 32);
     fontRow->addWidget(m_fontCombo, 1);
     fontRow->addWidget(m_btnImportFont);
-    lyricForm->addRow("歌词字体：", fontRow);
+    lyricForm->addRow(makeLeftLabel("歌词字体："), fontRow);
+
+    // 歌词颜色（已读 + 未读并排）
     QHBoxLayout *colorLayout = new QHBoxLayout;
     colorLayout->setSpacing(10);
     QLabel *lblSung = new QLabel("已读");
@@ -206,13 +259,21 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     colorLayout->addSpacing(16);
     colorLayout->addWidget(lblUnsang);
     colorLayout->addLayout(makeColorRow(m_edtColorUnsang, m_swatchUnsang, "#F1DDDF"));
-    lyricForm->addRow("歌词颜色：", colorLayout);
+    lyricForm->addRow(makeLeftLabel("歌词颜色："), colorLayout);
+
     root->addWidget(grpLyric);
+
+    // ══════════════════════════════════════════════════════════
+    // 分组三：壁纸歌词
+    // ══════════════════════════════════════════════════════════
     QGroupBox *grpWall = new QGroupBox("🖼  壁纸歌词");
     grpWall->setObjectName("wallGroup");
     QFormLayout *wallForm = new QFormLayout(grpWall);
-    wallForm->setSpacing(10);
-    wallForm->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    wallForm->setContentsMargins(12, 10, 12, 12);
+    wallForm->setHorizontalSpacing(20);
+    wallForm->setVerticalSpacing(14);
+    wallForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+    wallForm->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     m_chkWallpaper = new QCheckBox("启用壁纸歌词（将歌词显示于桌面壁纸）");
     m_chkWallpaper->setObjectName("settingsCheck");
     wallForm->addRow("", m_chkWallpaper);
@@ -220,10 +281,11 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     m_cmbOrientation->setObjectName("wallCombo");
     m_cmbOrientation->addItem("横排", static_cast<int>(LyricOrientation::Horizontal));
     m_cmbOrientation->addItem("竖排", static_cast<int>(LyricOrientation::Vertical));
-    wallForm->addRow("排列方式：", m_cmbOrientation);
+    wallForm->addRow(makeLeftLabel("排列方式："), m_cmbOrientation);
     m_btnPickPosition = new QPushButton("选择桌面位置");
     m_btnPickPosition->setObjectName("browseBtn");
-    m_lblWallPos = new QLabel(QString("X:%1  Y:%2").arg(m_wallPos.x()).arg(m_wallPos.y()));
+    m_lblWallPos = new QLabel(
+        QString("X:%1  Y:%2").arg(m_wallPos.x()).arg(m_wallPos.y()));
     m_lblWallPos->setObjectName("wallPosLabel");
     {
         QHBoxLayout *posRow = new QHBoxLayout;
@@ -231,26 +293,28 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
         posRow->addWidget(m_btnPickPosition);
         posRow->addWidget(m_lblWallPos);
         posRow->addStretch();
-        wallForm->addRow("显示位置：", posRow);
+        wallForm->addRow(makeLeftLabel("显示位置："), posRow);
     }
     {
         m_wallFontCombo = new NoWheelFontComboBox;
         m_wallFontCombo->setObjectName("fontCombo");
         m_wallFontCombo->setEditable(false);
         m_wallFontCombo->setCurrentFont(QFont("Microsoft YaHei"));
-        wallForm->addRow("歌词字体：", m_wallFontCombo);
+        wallForm->addRow(makeLeftLabel("歌词字体："), m_wallFontCombo);
     }
     m_wallFontSlider = new NoWheelSlider(Qt::Horizontal);
     m_wallFontSlider->setObjectName("settingsSlider");
     m_wallFontSlider->setRange(18, 80);
     m_wallFontSlider->setValue(36);
-    wallForm->addRow("歌词字号：", makeSliderRow(m_wallFontSlider, "px"));
+    wallForm->addRow(makeLeftLabel("歌词字号："), makeSliderRow(m_wallFontSlider, "px"));
     m_wallTitleFontSlider = new NoWheelSlider(Qt::Horizontal);
     m_wallTitleFontSlider->setObjectName("settingsSlider");
     m_wallTitleFontSlider->setRange(10, 60);
     m_wallTitleFontSlider->setValue(22);
-    wallForm->addRow("歌名字号：", makeSliderRow(m_wallTitleFontSlider, "px"));
-    m_lblWallMaxHeight = new QLabel("最大高度：");
+    wallForm->addRow(makeLeftLabel("歌名字号："), makeSliderRow(m_wallTitleFontSlider, "px"));
+    m_lblWallMaxHeight = new QLabel("竖排最大高度：");
+    m_lblWallMaxHeight->setFixedWidth(96);
+    m_lblWallMaxHeight->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     m_wallMaxHeightSlider = new NoWheelSlider(Qt::Horizontal);
     m_wallMaxHeightSlider->setObjectName("settingsSlider");
     m_wallMaxHeightSlider->setRange(10, 100);
@@ -259,31 +323,37 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
             {
                 emit wallpaperMaxHeightPercentChanged(v);
             });
-    wallForm->addRow(m_lblWallMaxHeight, makeSliderRow(m_wallMaxHeightSlider, "%"));
+    wallForm->addRow(makeLeftLabel("竖排最大高度："), makeSliderRow(m_wallMaxHeightSlider, "%"));
     m_wallOpacitySlider = new NoWheelSlider(Qt::Horizontal);
     m_wallOpacitySlider ->setObjectName("settingsSlider");
     m_wallOpacitySlider ->setRange(20,255);
     m_wallOpacitySlider ->setValue(255);
-    wallForm->addRow( "歌词透明：", makeSliderRow(m_wallOpacitySlider, "opacity") );
-    wallForm->addRow("歌词颜色：", makeColorRow(m_edtWallColorCurr, m_swatchWallCurr, "#FFFFFF"));
+    wallForm->addRow(makeLeftLabel("歌词透明度："), makeSliderRow(m_wallOpacitySlider, "opacity"));
+    wallForm->addRow(makeLeftLabel("歌词颜色："), makeColorRow(m_edtWallColorCurr, m_swatchWallCurr, "#FFFFFF"));
     root->addWidget(grpWall);
-    QLabel *aboutLabel = new QLabel(QString("Version: %1<br>GitHub: github.com/Alice-Cartelet").arg(QApplication::applicationVersion()));
+
+    QLabel *aboutLabel = new QLabel(QString("Version: %1<br>GitHub: github.com/Alice-Cartelet")
+                                        .arg(QApplication::applicationVersion()));
     aboutLabel->setObjectName("aboutLabel");
     aboutLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
     aboutLabel->setOpenExternalLinks(false);
     aboutLabel->setTextFormat(Qt::RichText);
+
     root->addStretch();
+
     QHBoxLayout *bottomRow = new QHBoxLayout;
     bottomRow->setContentsMargins(0,0,0,0);
     QVBoxLayout *aboutWrap = new QVBoxLayout;
     aboutWrap->setSpacing(0);
     aboutWrap->addStretch();
-    aboutWrap->addWidget(aboutLabel, 0, Qt::AlignRight | Qt::AlignBottom);
+    aboutWrap->addWidget(aboutLabel, 0, Qt::AlignLeft | Qt::AlignBottom);
     bottomRow->addLayout(aboutWrap);
     bottomRow->addStretch();
+
     QHBoxLayout *btns = new QHBoxLayout;
     bottomRow->addLayout(btns);
     btns->addStretch();
+
     m_btnCancel = new QPushButton("取消");
     m_btnOk = new QPushButton("确定");
     m_btnCancel->setObjectName("dlgBtn");
@@ -294,7 +364,9 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     btns->addSpacing(8);
     btns->addWidget(m_btnOk);
     root->addLayout(bottomRow);
+
     applyStyle();
+
     connect(m_btnMusic, &QPushButton::clicked, this, [this]
             {
                 QString d = QFileDialog::getExistingDirectory(this, "选择音乐目录", m_edtMusic->text());
@@ -348,6 +420,7 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
                     m_wallFontCombo->setCurrentFont(QFont(lastFamily));
                 }
             });
+    // 两个字体 combo 联动
     connect(m_fontCombo, &QFontComboBox::currentFontChanged, this, [this](const QFont &f)
             {
                 if(m_wallFontCombo->currentFont().family() != f.family())
@@ -360,7 +433,8 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
             });
     connect(m_btnPickPosition, &QPushButton::clicked, this, [this]
             {
-                LyricOrientation orient = static_cast<LyricOrientation>(m_cmbOrientation->currentData().toInt());
+                LyricOrientation orient = static_cast<LyricOrientation>(
+                    m_cmbOrientation->currentData().toInt());
                 PositionPicker dlg(orient, this);
                 if (dlg.exec() == QDialog::Accepted)
                 {
@@ -372,54 +446,61 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
                     emit wallpaperPositionChanged(m_wallPos);
                 }
             });
-    connect(m_edtWallColorCurr, &QLineEdit::textChanged, this, [this](const QString &t){updateSwatch(m_swatchWallCurr, t);});
+    connect(m_edtWallColorCurr, &QLineEdit::textChanged, this, [this](const QString &t)
+            {
+                updateSwatch(m_swatchWallCurr, t);
+            });
     connect(m_btnOk, &QPushButton::clicked, this, [this]
             {
                 QSettings s("MusicPlayer", "MusicPlayer");
-                QString newSung = m_edtColorSung->text();
-                QString newMusicDir = m_edtMusic->text();
-                QString newLyricsDir = m_edtLyrics->text();
-                QString newUnsang = m_edtColorUnsang->text();
-                QString newWallColorC = m_edtWallColorCurr->text();
                 QString oldMusicDir = s.value("musicDir").toString();
                 QString oldLyricsDir = s.value("lyricsDir").toString();
-                QString newFontFamily = m_fontCombo->currentFont().family();
-                QString oldSung = s.value("lyricColorSung", "#E63248").toString();
-                QString oldUnsang = s.value("lyricColorUnsang", "#F1DDDF").toString();
-                QString oldWallColorC = s.value("wallpaperColorCurrent", "#FFFFFF").toString();
-                QString oldFontFamily = s.value("lyricFontFamily", "Microsoft YaHei").toString();
-                QString oldWallColorO = s.value("wallpaperColorOther", "rgba(255,255,255,0.55)").toString();
                 bool oldShowLyrics = s.value("showLyrics", false).toBool();
+                int oldVolume = s.value("volume", 70).toInt();
+                int oldMiniOpacity = s.value("miniOpacity", 140).toInt();
                 bool oldTray = s.value("minimizeToTray", false).toBool();
                 bool oldMini = s.value("enableMiniControl", true).toBool();
                 bool oldHideHover = s.value("hideOnHover", false).toBool();
+                QString oldSung = s.value("lyricColorSung", "#E63248").toString();
+                QString oldUnsang = s.value("lyricColorUnsang", "#F1DDDF").toString();
+                int oldFontSize = s.value("lyricFontSize", 28).toInt();
+                QString oldFontFamily = s.value("lyricFontFamily", "Microsoft YaHei").toString();
                 bool oldWallEnabled = s.value("wallpaperLyricsEnabled", false).toBool();
+                int oldWallOrient = s.value("wallpaperOrientation", 0).toInt();
+                int oldWallPos = s.value("wallPosX", 7).toInt();
+                QString oldWallColorC = s.value("wallpaperColorCurrent", "#FFFFFF").toString();
+                QString oldWallColorO = s.value("wallpaperColorOther", "rgba(255,255,255,0.55)").toString();
                 bool oldWallShadow = s.value("wallpaperTextShadow", true).toBool();
-                bool newShowLyrics = m_chkLyrics->isChecked();
-                bool newTray = m_chkTray->isChecked();
-                bool newMini = m_chkMiniControl->isChecked();
-                bool newHideHover = m_chkHideHover->isChecked();
-                bool newWallEnabled = m_chkWallpaper->isChecked();
-                int newFontSize = m_lyricFontSlider->value();
                 int oldWallFont = s.value("wallpaperFontSize", 36).toInt();
                 int oldWallTitleFont= s.value("wallpaperTitleFontSize", 22).toInt();
                 int oldWallOpacity = s.value("wallpaperOpacity", 255).toInt();
+
+                QString newMusicDir = m_edtMusic->text();
+                QString newLyricsDir = m_edtLyrics->text();
+                bool newShowLyrics = m_chkLyrics->isChecked();
                 int newVolume = m_volSlider->value();
                 int newMiniOpacity = m_miniOpacitySlider->value();
-                int oldWallOrient = s.value("wallpaperOrientation", 0).toInt();
-                int oldWallPos = s.value("wallPosX", 7).toInt();
-                int newWallOrient = m_cmbOrientation->currentIndex();
-                int newWallFont = m_wallFontSlider->value();
-                int newWallTitleFont= m_wallTitleFontSlider->value();
-                int oldFontSize = s.value("lyricFontSize", 28).toInt();
-                int newWallOpacity = m_wallOpacitySlider->value();
-                int newWallMaxHeight = m_wallMaxHeightSlider->value();
-                int oldVolume = s.value("volume", 70).toInt();
-                int oldMiniOpacity = s.value("miniOpacity", 140).toInt();
+                bool newTray = m_chkTray->isChecked();
+                bool newMini = m_chkMiniControl->isChecked();
+                bool newHideHover = m_chkHideHover->isChecked();
+                QString newSung = m_edtColorSung->text();
+                QString newUnsang = m_edtColorUnsang->text();
+                int newFontSize = m_lyricFontSlider->value();
+                QString newFontFamily = m_fontCombo->currentFont().family();
+
                 if (newSung.length() != 7) newSung = oldSung;
                 if (newUnsang.length() != 7) newUnsang = oldUnsang;
+
+                bool newWallEnabled = m_chkWallpaper->isChecked();
+                int newWallOrient = m_cmbOrientation->currentIndex();
                 s.setValue("wallPosX", m_wallPos.x());
                 s.setValue("wallPosY", m_wallPos.y());
+                QString newWallColorC = m_edtWallColorCurr->text();
+                int newWallFont = m_wallFontSlider->value();
+                int newWallTitleFont= m_wallTitleFontSlider->value();
+                int newWallOpacity = m_wallOpacitySlider->value();
+                int newWallMaxHeight = m_wallMaxHeightSlider->value();
+
                 s.setValue("musicDir", newMusicDir);
                 s.setValue("lyricsDir", newLyricsDir);
                 s.setValue("showLyrics", newShowLyrics);
@@ -433,13 +514,16 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
                 s.setValue("lyricFontSize", newFontSize);
                 s.setValue("lyricFontFamily", newFontFamily);
                 s.setValue("wallpaperOpacity", newWallOpacity);
+
+                if (oldWallOpacity != newWallOpacity) emit wallpaperOpacityChanged(newWallOpacity);
+
                 s.setValue("wallpaperLyricsEnabled", newWallEnabled);
                 s.setValue("wallpaperOrientation", newWallOrient);
                 s.setValue("wallpaperColorCurrent", newWallColorC);
                 s.setValue("wallpaperFontSize", newWallFont);
                 s.setValue("wallpaperTitleFontSize", newWallTitleFont);
                 s.setValue("wallpaperMaxHeightPercent", newWallMaxHeight);
-                if (oldWallOpacity != newWallOpacity) emit wallpaperOpacityChanged(newWallOpacity);
+
                 if (oldMusicDir != newMusicDir) emit musicDirChanged(newMusicDir);
                 if (oldLyricsDir != newLyricsDir) emit lyricsDirChanged(newLyricsDir);
                 if (oldShowLyrics != newShowLyrics) emit showLyricsChanged(newShowLyrics);
@@ -452,13 +536,17 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
                 if (oldFontSize != newFontSize) emit lyricFontSizeChanged(newFontSize);
                 if (oldFontFamily != newFontFamily) emit lyricFontFamilyChanged(newFontFamily);
                 if (oldWallEnabled != newWallEnabled) emit wallpaperLyricsEnabledChanged(newWallEnabled);
-                if (oldWallOrient != newWallOrient) emit wallpaperOrientationChanged(static_cast<LyricOrientation>(m_cmbOrientation->currentData().toInt()));emit wallpaperPositionChanged(m_wallPos);
+                if (oldWallOrient != newWallOrient) emit wallpaperOrientationChanged(static_cast<LyricOrientation>(m_cmbOrientation->currentData().toInt()));
+                emit wallpaperPositionChanged(m_wallPos);
                 if (oldWallColorC != newWallColorC) emit wallpaperColorCurrentChanged(newWallColorC);
                 if (oldWallFont != newWallFont) emit wallpaperFontSizeChanged(newWallFont);
-                if (oldWallTitleFont != newWallTitleFont) emit wallpaperTitleFontSizeChanged(newWallTitleFont);emit wallpaperMaxHeightPercentChanged(newWallMaxHeight);
+                if (oldWallTitleFont != newWallTitleFont) emit wallpaperTitleFontSizeChanged(newWallTitleFont);
+                emit wallpaperMaxHeightPercentChanged(newWallMaxHeight);
+
                 accept();
             });
     connect(m_btnCancel, &QPushButton::clicked, this, &QDialog::reject);
+
     QSettings s("MusicPlayer", "MusicPlayer");
     m_edtMusic->setText(s.value("musicDir").toString());
     m_edtLyrics->setText(s.value("lyricsDir").toString());
@@ -470,41 +558,83 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     m_chkTray->setChecked(s.value("minimizeToTray", false).toBool());
     m_chkMiniControl->setChecked(s.value("enableMiniControl", true).toBool());
     m_chkHideHover->setChecked(s.value("hideOnHover", false).toBool());
+
     QString sungColor = s.value("lyricColorSung", "#E63248").toString();
     QString unsangColor = s.value("lyricColorUnsang", "#F1DDDF").toString();
     m_edtColorSung->setText(sungColor);
     m_edtColorUnsang->setText(unsangColor);
     updateSwatch(m_swatchSung, sungColor);
     updateSwatch(m_swatchUnsang, unsangColor);
+
     QString savedFamily = s.value("lyricFontFamily", "Microsoft YaHei").toString();
     m_fontCombo->setCurrentFont(QFont(savedFamily));
     m_wallFontCombo->setCurrentFont(QFont(savedFamily));
+
     m_chkWallpaper->setChecked(s.value("wallpaperLyricsEnabled", false).toBool());
     m_cmbOrientation->setCurrentIndex(s.value("wallpaperOrientation", 0).toInt());
     m_wallPos = QPoint(s.value("wallPosX", 800).toInt(), s.value("wallPosY", 500).toInt());
     m_lblWallPos->setText(QString("X:%1  Y:%2").arg(m_wallPos.x()).arg(m_wallPos.y()));
+
     m_wallFontSlider->setValue(s.value("wallpaperFontSize", 36).toInt());
     m_wallTitleFontSlider->setValue(s.value("wallpaperTitleFontSize", 22).toInt());
     int savedMaxHeight = s.value("wallpaperMaxHeightPercent", 75).toInt();
     m_wallMaxHeightSlider->setValue(savedMaxHeight);
+
     QString wallColorC = s.value("wallpaperColorCurrent", "#FFFFFF").toString();
     QString wallColorO = s.value("wallpaperColorOther", "rgba(255,255,255,0.55)").toString();
     Q_UNUSED(wallColorO);
     m_edtWallColorCurr->setText(wallColorC);
     updateSwatch(m_swatchWallCurr, wallColorC);
 }
-QString SettingsDialog::musicDir() const{return m_edtMusic->text();}
-QString SettingsDialog::lyricsDir() const{return m_edtLyrics->text();}
-bool SettingsDialog::showLyrics() const{return m_chkLyrics->isChecked();}
-float SettingsDialog::volume() const{return m_volSlider->value() / 100.f;}
-bool SettingsDialog::minimizeToTray() const{return m_chkTray->isChecked();}
-bool SettingsDialog::hideOnHover() const{return m_chkHideHover->isChecked();}
-QString SettingsDialog::lyricColorSung() const{return m_edtColorSung->text();}
-QString SettingsDialog::lyricColorUnsang() const{return m_edtColorUnsang->text();}
-int SettingsDialog::lyricFontSize() const{return m_lyricFontSlider->value();}
-QString SettingsDialog::lyricFontFamily() const{return m_fontCombo->currentFont().family();}
-bool SettingsDialog::wallpaperLyricsEnabled() const{return m_chkWallpaper->isChecked();}
-LyricOrientation SettingsDialog::wallpaperOrientation() const{return static_cast<LyricOrientation>(m_cmbOrientation->currentData().toInt());}
+
+QString SettingsDialog::musicDir() const
+{
+    return m_edtMusic->text();
+}
+QString SettingsDialog::lyricsDir() const
+{
+    return m_edtLyrics->text();
+}
+bool SettingsDialog::showLyrics() const
+{
+    return m_chkLyrics->isChecked();
+}
+float SettingsDialog::volume() const
+{
+    return m_volSlider->value() / 100.f;
+}
+bool SettingsDialog::minimizeToTray() const
+{
+    return m_chkTray->isChecked();
+}
+bool SettingsDialog::hideOnHover() const
+{
+    return m_chkHideHover->isChecked();
+}
+QString SettingsDialog::lyricColorSung() const
+{
+    return m_edtColorSung->text();
+}
+QString SettingsDialog::lyricColorUnsang() const
+{
+    return m_edtColorUnsang->text();
+}
+int SettingsDialog::lyricFontSize() const
+{
+    return m_lyricFontSlider->value();
+}
+QString SettingsDialog::lyricFontFamily() const
+{
+    return m_fontCombo->currentFont().family();
+}
+bool SettingsDialog::wallpaperLyricsEnabled() const
+{
+    return m_chkWallpaper->isChecked();
+}
+LyricOrientation SettingsDialog::wallpaperOrientation() const
+{
+    return static_cast<LyricOrientation>(m_cmbOrientation->currentData().toInt());
+}
 QPoint SettingsDialog::wallpaperPosition() const
 {
     return m_wallPos;
