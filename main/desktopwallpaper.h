@@ -19,6 +19,7 @@
 #include <QColor>
 #include <QApplication>
 #include <QScreen>
+#include <QVariantAnimation>
 enum class LyricOrientation
 {
     Horizontal,
@@ -27,6 +28,12 @@ enum class LyricOrientation
 enum class LyricPosition
 {
     Custom
+};
+enum class WallpaperExtraLyricsMode
+{
+    None = 0,
+    Translation = 1,
+    NextLine = 2
 };
 class RotatedLabel : public QLabel
 {
@@ -295,7 +302,7 @@ public:
     ~DesktopWallpaperLyrics();
     bool isEnabled() const{return m_enabled;}
     void setEnabled(bool on);
-    void updateLyrics(const QString&,const QString& cur,const QString&);
+    void updateLyrics(const QString&,const QString& cur,const QString&, const QString &translation = QString());
     void clearLyrics();
     void setOpacity(int value);
     void setBackgroundImage(const QString&);
@@ -305,6 +312,8 @@ public:
     void setFontFamily(const QString&);
     void setFontSize(int);
     void setTitleFontSize(int);
+    void setExtraFontSize(int);
+    void setExtraLyricsMode(WallpaperExtraLyricsMode mode);
     void setColorCurrent(const QString&);
     void setColorOther(const QString&);
     void setTextShadow(bool);
@@ -313,22 +322,28 @@ public:
 private:
     void applyAsWallpaper();
     void updateLayout();
+    void animateNextLinePromotion(const QString &cur, const QString &nextExtra);
     void playFade();
 private:
     QWidget *m_desktopWidget = nullptr;
     RotatedLabel *m_curLabel = nullptr;
+    RotatedLabel *m_extraLabel = nullptr;
     RotatedLabel *m_titleLabel = nullptr;
     QGraphicsOpacityEffect *m_titleFx = nullptr;
     QString m_currentTitle;
     QString m_currentLine;
+    QString m_currentExtraLine;
     int m_opacity = 255;
     QString m_fontFamily;
     QString m_bgImagePath;
     bool m_animating = false;
     QString m_pendingLine;
+    QString m_pendingExtraLine;
     QString m_colorCurrent = "#FFFFFF";
     int m_fontSize = 36;
     int m_titleFontSize = -1;
+    int m_extraFontSize = 24;
+    WallpaperExtraLyricsMode m_extraMode = WallpaperExtraLyricsMode::None;
     bool m_textShadow = true;
     bool m_enabled = false;
     bool m_attached = false;
@@ -336,5 +351,6 @@ private:
     LyricOrientation m_orientation = LyricOrientation::Horizontal;
     bool m_showStartupText = false;
     QGraphicsOpacityEffect *m_fx = nullptr;
+    QGraphicsOpacityEffect *m_extraFx = nullptr;
     float m_maxHeightRatio = 0.75f;
 };

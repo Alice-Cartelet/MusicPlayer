@@ -11,6 +11,7 @@ public: explicit LyricsOverlay(QWidget *parent = nullptr);
     void loadLyrics(const QString &path);
     void updatePosition(qint64 posMs);
     void getLyricLines(qint64 posMs, QString &prev, QString &cur, QString &next) const;
+    void getLyricLines(qint64 posMs, QString &prev, QString &cur, QString &next, QString &translation) const;
     void setLyricsVisible(bool v);
     bool lyricsVisible() const;
     void setHideOnHover(bool v);

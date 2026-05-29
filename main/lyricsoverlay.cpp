@@ -399,13 +399,20 @@ bool LyricsOverlay::lyricsVisible() const {
 }
 void LyricsOverlay::getLyricLines(qint64 posMs, QString &prev,QString &cur,QString &next) const
 {
+    QString translation;
+    getLyricLines(posMs, prev, cur, next, translation);
+}
+void LyricsOverlay::getLyricLines(qint64 posMs, QString &prev,QString &cur,QString &next, QString &translation) const
+{
     prev.clear();
     cur.clear();
     next.clear();
+    translation.clear();
     if (m_parser.isEmpty()) return;
     int idx = m_parser.currentLine(posMs);
     if (idx < 0) return;
     cur = m_parser.line(idx).text;
+    translation = m_parser.line(idx).translation;
     if (idx > 0) prev = m_parser.line(idx - 1).text;
     if (idx + 1 < m_parser.count()) next = m_parser.line(idx + 1).text;
 }

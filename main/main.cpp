@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
     if (socket.waitForConnected(300))
     {
         MessageBoxW(nullptr,L"本程序已在运行。",L"MusicPlayer出现错误",MB_OK | MB_ICONERROR);
-        //return 0;
+        return 0;
     }
     QLocalServer::removeServer(serverName);
     QLocalServer server;

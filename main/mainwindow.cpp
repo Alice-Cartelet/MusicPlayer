@@ -33,6 +33,7 @@
 #include <QCursor>
 #include <QFileDialog>
 #include "id3v2helper.h"
+#include "version.h"
 #include <QFontDatabase>
 #include "desktopwallpaper.h"
 class BlurredBackground : public QWidget
@@ -625,6 +626,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
             );
     connect( m_settingsDlg, &SettingsDialog::wallpaperFontSizeChanged, m_wallpaperLyrics, &DesktopWallpaperLyrics::setFontSize );
     connect( m_settingsDlg, &SettingsDialog::wallpaperTitleFontSizeChanged, m_wallpaperLyrics, &DesktopWallpaperLyrics::setTitleFontSize );
+    connect( m_settingsDlg, &SettingsDialog::wallpaperExtraFontSizeChanged, m_wallpaperLyrics, &DesktopWallpaperLyrics::setExtraFontSize );
+    connect( m_settingsDlg, &SettingsDialog::wallpaperExtraLyricsModeChanged, m_wallpaperLyrics, &DesktopWallpaperLyrics::setExtraLyricsMode );
     connect( m_settingsDlg, &SettingsDialog::wallpaperMaxHeightPercentChanged, this, [this](int pct)
             {
                 m_wallpaperLyrics->setMaxHeightRatio(pct / 100.0f);
@@ -760,6 +763,8 @@ void MainWindow::initWallpaperLyrics()
     m_wallpaperLyrics->setFontFamily( s.value( "lyricFontFamily", "Microsoft YaHei" ).toString() );
     m_wallpaperLyrics->setFontSize( s.value("wallpaperFontSize", 36).toInt() );
     m_wallpaperLyrics->setTitleFontSize( s.value("wallpaperTitleFontSize", 22).toInt() );
+    m_wallpaperLyrics->setExtraFontSize( s.value("wallpaperExtraFontSize", 24).toInt() );
+    m_wallpaperLyrics->setExtraLyricsMode( static_cast<WallpaperExtraLyricsMode>( s.value("wallpaperExtraLyricsMode", 0).toInt() ) );
     m_wallpaperLyrics->setMaxHeightRatio( s.value("wallpaperMaxHeightPercent", 75).toInt() / 100.0f );
     m_wallpaperLyrics->setEnabled( s.value( "wallpaperLyricsEnabled", false ).toBool() );
 }
@@ -1856,9 +1861,9 @@ void MainWindow::onPositionChanged(qint64 pos)
     if (m_showLyrics && m_lyricsOverlay->isVisible()) m_lyricsOverlay->updatePosition(pos);
     if (m_wallpaperLyrics->isEnabled())
     {
-        QString prev, cur, next;
-        m_lyricsOverlay->getLyricLines(pos, prev, cur, next);
-        m_wallpaperLyrics->updateLyrics(prev, cur, next);
+        QString prev, cur, next, translation;
+        m_lyricsOverlay->getLyricLines(pos, prev, cur, next, translation);
+        m_wallpaperLyrics->updateLyrics(prev, cur, next, translation);
     }
 }
 void MainWindow::onMediaErrorOccurred(QMediaPlayer::Error, const QString &msg)
@@ -1877,6 +1882,8 @@ void MainWindow::onOpenSettings()
     m_settingsDlg->setLyricColorSung(s.value("lyricColorSung", "#E63248").toString());
     m_settingsDlg->setLyricColorUnsang(s.value("lyricColorUnsang", "#F1DDDF").toString());
     m_settingsDlg->setLyricFontSize(s.value("lyricFontSize", 28).toInt());
+    m_settingsDlg->setWallpaperExtraFontSize(s.value("wallpaperExtraFontSize", 24).toInt());
+    m_settingsDlg->setWallpaperExtraLyricsMode(static_cast<WallpaperExtraLyricsMode>(s.value("wallpaperExtraLyricsMode", 0).toInt()));
     {
         QString defaultFamily = "Microsoft YaHei";
         QString naikaiPath = QCoreApplication::applicationDirPath() + "/naikai.ttf";
@@ -2070,8 +2077,8 @@ void MainWindow::restorePlaybackState()
         m_lblTitle->setText(t.title);
         if (m_miniControl) m_miniControl->setTitle(t.title);
         m_lblArtist->setText(t.artist.isEmpty() ? "未知艺术家" : t.artist);
-        setWindowTitle(t.title + " - 音乐播放器 by AliceCartelet");
-        updateTitleBarTitle(t.title + " - 音乐播放器 by AliceCartelet");
+        setWindowTitle(t.title + " - MusicPlayer v" + APP_VERSION);
+        updateTitleBarTitle(t.title + " - MusicPlayer v" + APP_VERSION);
         m_listView->setCurrentIndex(m_playlist->index(index));
         if (m_trackDelegate) m_trackDelegate->setPlayingRow(index);
         m_lyricsOverlay->loadLyrics(findLyricFile(t.filePath));
@@ -2204,8 +2211,8 @@ void MainWindow::playTrack(int index)
     m_lblTitle->setText(t.title);
     if (m_miniControl) m_miniControl->setTitle(t.title);
     m_lblArtist->setText(t.artist.isEmpty() ? "未知艺术家" : t.artist);
-    setWindowTitle(t.title + " - 音乐播放器 - AliceCartelet");
-    updateTitleBarTitle(t.title + " - 音乐播放器 - AliceCartelet");
+    setWindowTitle(t.title + " - MusicPlayer v" + APP_VERSION);
+    updateTitleBarTitle(t.title + " - MusicPlayer v" + APP_VERSION);
     m_listView->setCurrentIndex(m_playlist->index(index));
     if (m_trackDelegate) m_trackDelegate->setPlayingRow(index);
     m_listView->viewport()->update();

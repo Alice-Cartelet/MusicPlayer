@@ -83,6 +83,106 @@ void LrcxParser::parseTt( const QString &body, LrcLine &line)
     }
     line.hasTiming = line.chars.size() >= 2;
 }
+// Parses lines where every character is prefixed by its own timestamp, e.g.:
+//   [00:39.423]電[00:39.745]車[00:40.015]に...
+// Returns true if the line contains at least one inter-character timestamp
+// (i.e. more than just the leading line-start tag).
+bool LrcxParser::parseInlineKaraoke(const QString &raw, LrcLine &line)
+{
+    static const QRegularExpression tsTagRe( R"(\[(\d+:\d+\.\d+)\])" );
+
+    // Collect all timestamp matches and the text segments between them
+    QRegularExpressionMatchIterator mit = tsTagRe.globalMatch(raw);
+    QList<QRegularExpressionMatch> matches;
+    while (mit.hasNext()) matches.append(mit.next());
+
+    if (matches.size() < 2) return false; // need at least 2 tags to be karaoke
+
+    // The first tag is the line start; after it comes: char, [ts], char, [ts], ...
+    // Check that there is non-timestamp content interspersed between the tags.
+    // We confirm it's inline-karaoke by verifying text exists between consecutive tags.
+    bool hasInterleaved = false;
+    for (int i = 0; i < matches.size() - 1; ++i)
+    {
+        int segStart = matches[i].capturedEnd();
+        int segEnd   = matches[i + 1].capturedStart();
+        if (segEnd > segStart)
+        {
+            hasInterleaved = true;
+            break;
+        }
+    }
+    if (!hasInterleaved) return false;
+
+    // Build the plain text and CharTiming list.
+    // Each [ts] marks the start time of the text that follows it until the next [ts].
+    QString text;
+    QVector<CharTiming> chars;
+
+    qint64 lineStartMs = parseTimestamp(matches.first().captured(1));
+    if (lineStartMs < 0) return false;
+
+    for (int i = 0; i < matches.size(); ++i)
+    {
+        qint64 tsMs = parseTimestamp(matches[i].captured(1));
+        if (tsMs < 0) continue;
+
+        int segStart = matches[i].capturedEnd();
+        int segEnd   = (i + 1 < matches.size()) ? matches[i + 1].capturedStart() : raw.length();
+        QString seg  = raw.mid(segStart, segEnd - segStart);
+
+        if (seg.isEmpty()) continue; // tag with no following text (e.g. trailing end-tag)
+
+        CharTiming ct;
+        ct.offsetMs  = tsMs - lineStartMs; // store as offset from line start
+        ct.charIndex = unicodeLength(text); // index of first char of this segment
+        chars.append(ct);
+
+        text += seg;
+    }
+
+    if (text.isEmpty() || chars.size() < 2) return false;
+
+    // Append a sentinel timing at the end so highlightCount() can interpolate the last segment.
+    // Use the last tag's absolute time as the end; if the last match had no following text
+    // (pure end-tag), use its timestamp directly, otherwise estimate duration = avg char duration.
+    {
+        // Check whether the last match in `matches` had no following text (it's a pure end-tag)
+        int lastSegStart = matches.last().capturedEnd();
+        bool lastIsEndTag = (lastSegStart >= raw.length() ||
+                             raw.mid(lastSegStart).trimmed().isEmpty());
+        if (lastIsEndTag)
+        {
+            qint64 endMs = parseTimestamp(matches.last().captured(1));
+            if (endMs > lineStartMs)
+            {
+                CharTiming sentinel;
+                sentinel.offsetMs  = endMs - lineStartMs;
+                sentinel.charIndex = unicodeLength(text);
+                chars.append(sentinel);
+            }
+        }
+        else
+        {
+            // No explicit end tag: estimate end = last char offset + avg inter-char gap
+            if (chars.size() >= 2)
+            {
+                qint64 gap = (chars.last().offsetMs - chars.first().offsetMs) / (chars.size() - 1);
+                CharTiming sentinel;
+                sentinel.offsetMs  = chars.last().offsetMs + gap;
+                sentinel.charIndex = unicodeLength(text);
+                chars.append(sentinel);
+            }
+        }
+    }
+
+    line.startMs  = lineStartMs;
+    line.text     = text;
+    line.chars    = chars;
+    line.hasTiming = (chars.size() >= 2);
+    return true;
+}
+
 bool LrcxParser::load( const QString &filePath)
 {
     QFile f(filePath);
@@ -96,6 +196,16 @@ bool LrcxParser::load( const QString &filePath)
     {
         QString raw = in.readLine();
         if (raw.trimmed().isEmpty()) continue;
+        // Try inline-karaoke format first (every char has its own leading [ts])
+        {
+            LrcLine karaokeCandidate;
+            if (parseInlineKaraoke(raw, karaokeCandidate))
+            {
+                m_lines.append(karaokeCandidate);
+                continue;
+            }
+        }
+
         QList<qint64> timestamps;
         QRegularExpressionMatchIterator mit = tsTagRe.globalMatch(raw);
         QList<QRegularExpressionMatch> matches;
@@ -139,6 +249,22 @@ bool LrcxParser::load( const QString &filePath)
         else
         {
             QString text = rest.trimmed();
+            if(hasEndTimestamp && !text.isEmpty())
+            {
+                bool attachedTranslation = false;
+                for (int i = m_lines.size() - 1; i >= 0; --i)
+                {
+                    if (m_lines[i].startMs != startTs) continue;
+                    if (m_lines[i].text != text && m_lines[i].translation.isEmpty())
+                    {
+                        m_lines[i].translation = text;
+                        attachedTranslation = true;
+                    }
+                    break;
+                }
+                if(attachedTranslation)
+                    continue;
+            }
             for (qint64 ts : timestamps)
             {
                 LrcLine line;

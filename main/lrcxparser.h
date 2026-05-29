@@ -12,6 +12,7 @@ struct LrcLine
 {
     qint64 startMs;
     QString text;
+    QString translation;
     QVector<CharTiming> chars;
     bool hasTiming = false;
     int highlightCount(qint64 lineOffsetMs) const;
@@ -35,10 +36,11 @@ public: bool load(const QString &filePath);
         return m_lines[i];
     }
     static QString findLyricFile(const QString &audioFilePath, const QString &lyricsDir =
-    {}
-);
+                                                               {}
+                                 );
 private: QList<LrcLine> m_lines;
     static qint64 parseTimestamp(const QString &inner);
     static void parseTt(const QString &ttBody, LrcLine &line);
+    static bool parseInlineKaraoke(const QString &raw, LrcLine &line);
 }
 ;
