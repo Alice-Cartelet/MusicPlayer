@@ -123,7 +123,7 @@ void LyricsOverlay::buildFont()
 {
     m_font.setPointSize(m_fontSize);
     m_font.setBold(true);
-    m_font.setFamilies({m_fontFamily, "Microsoft YaHei", "Arial", "Segoe UI"});
+   m_font.setFamilies({m_fontFamily, "Nirmala UI", "Mangal", "Microsoft YaHei", "Arial", "Segoe UI"});
 }
 void LyricsOverlay::loadLyrics(const QString &path)
 {
