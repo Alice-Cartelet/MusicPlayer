@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>音乐壁纸01</title>
+  <link rel="preload" href="1.jpg" as="image">
+  <style>
+    @font-face {
+      font-family: Naikai;
+      src: url("./Naikai.ttf") format("truetype");
+      font-weight: 100 900;
+      font-display: swap;
+    }
+    :root {
+      --paper: #fff4dc;
+      --gold: #ebc88d;
+      --muted: #d6c9b5;
+      --progress: 0;
+      --record-size: clamp(230px, 23vw, 350px);
+      font-family: Naikai, "KaiTi", "Microsoft YaHei", serif;
+      color: var(--paper);
+      background: #29251e;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html, body { width: 100%; height: 100%; margin: 0; }
+    body { overflow: hidden; isolation: isolate; }
+    button { font: inherit; }
+    button:focus-visible { outline: 2px solid var(--gold); outline-offset: 6px; }
+    .landscape, .shade, .light, .grain { position: fixed; inset: 0; pointer-events: none; }
+    .landscape {
+      z-index: -5;
+      background: url("./1.jpg") center center / cover no-repeat;
+      animation: landscape-breath 48s ease-in-out infinite alternate;
+    }
+    .shade {
+      z-index: -4;
+      background:
+        linear-gradient(180deg, rgba(17, 23, 24, .32), transparent 24%, rgba(15, 18, 17, .26) 45%, rgba(15, 18, 17, .72) 100%),
+        linear-gradient(90deg, rgba(17, 24, 24, .35), rgba(18, 22, 21, .28) 55%, rgba(20, 24, 24, .1));
+    }
+    .light {
+      z-index: -3;
+      background: radial-gradient(ellipse at 18% 65%, rgba(222, 161, 76, .13), transparent 49%);
+      animation: light-breath 9s ease-in-out infinite alternate;
+    }
+    .grain {
+      z-index: -2;
+      opacity: .045;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath fill='%23fff' filter='url(%23n)' d='M0 0h160v160H0z'/%3E%3C/svg%3E");
+    }
+    .masthead {
+      position: absolute;
+      top: clamp(24px, 4.8vh, 58px);
+      left: 5vw;
+      right: 5vw;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+    }
+    .brand { display: flex; align-items: center; gap: 15px; }
+    .brand-mark { width: 38px; height: 38px; color: var(--gold); opacity: .95; }
+    .brand-name { font-size: 23px; letter-spacing: .17em; }
+    .eyebrow {
+      font: 10px/1.5 "Segoe UI", Arial, sans-serif;
+      letter-spacing: .3em;
+      color: #e4d5bd;
+    }
+    .brand .eyebrow { margin-top: 4px; font-size: 9px; letter-spacing: .25em; opacity: .7; }
+    .ambient-note { font-size: 15px; letter-spacing: .2em; color: #f5eedddd; }
+    .ambient-note::before { content: ""; display: inline-block; width: 26px; height: 1px; background: #f5e5c78c; vertical-align: middle; margin-right: 16px; }
+    .player {
+      width: min(1220px, 84vw);
+      position: absolute;
+      left: 50%;
+      top: 55%;
+      transform: translate(-50%, -50%);
+      display: grid;
+      grid-template-columns: 40% minmax(0, 1fr);
+      align-items: center;
+      gap: clamp(36px, 5vw, 90px);
+    }
+    .album { text-align: center; min-width: 0; }
+    .record-stage { width: var(--record-size); height: var(--record-size); position: relative; margin: 0 auto; }
+    .record-stage::before {
+      content: "";
+      position: absolute;
+      inset: -22px;
+      border: 1px solid rgba(242, 220, 178, .14);
+      border-radius: 50%;
+    }
+    .record-stage::after {
+      content: "";
+      position: absolute;
+      inset: -34px;
+      border: 1px solid rgba(242, 220, 178, .055);
+      border-radius: 50%;
+    }
+    .record-rotor {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      border-radius: 50%;
+      background: repeating-radial-gradient(circle, #151918 0 2px, #262a26 2.5px 3px, #121714 3.5px 5px);
+      border: 1px solid #a398753b;
+      box-shadow: 0 22px 65px #0007, 0 2px 5px #0006, inset 0 0 0 9px #080f0b45;
+      animation: record-spin 28s linear infinite;
+      animation-play-state: paused;
+      will-change: transform;
+    }
+    .record-art {
+      position: absolute;
+      inset: 13%;
+      border-radius: 50%;
+      overflow: hidden;
+      background: #424338;
+      box-shadow: 0 0 0 1px #dfce9d3d, 0 0 0 7px #03090455;
+    }
+    #cover { display: block; width: 100%; height: 100%; object-fit: cover; }
+    .record-placeholder {
+      width: 100%; height: 100%;
+      display: grid; place-items: center;
+      background: radial-gradient(circle at 30% 20%, #8c7953, #4a5446 48%, #202e27);
+    }
+    .record-placeholder svg { width: 43%; height: 43%; color: #f1dfb9; opacity: .8; }
+    .spindle {
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 17px; height: 17px;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #fff4d1, #b4a37f 50%, #594e3b);
+      border: 4px solid #171f17;
+      box-shadow: 0 0 0 1px #e8ca862b;
+    }
+    .record-sheen {
+      position: absolute; inset: 0;
+      border-radius: 50%;
+      pointer-events: none;
+      background: conic-gradient(from 30deg, transparent 0 18%, #fff5c110 21%, transparent 29% 65%, #fff5c11c 70%, transparent 79%);
+    }
+    .orbit-dot { position: absolute; top: -25px; left: 50%; width: 7px; height: 7px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 16px #eed09688; opacity: .75; }
+    .song-info { margin-top: 43px; }
+    #title { font-weight: 400; font-size: clamp(27px, 2.8vw, 39px); letter-spacing: .08em; margin: 0; line-height: 1.45; text-wrap: balance; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    #artist { margin: 9px 0 0; color: #e1d6c3; font-size: 16px; letter-spacing: .09em; line-height: 1.65; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .playback-status { margin-top: 18px; display: inline-flex; align-items: center; gap: 10px; color: var(--gold); font-size: 13px; letter-spacing: .15em; }
+    .equalizer { display: flex; gap: 3px; align-items: center; height: 15px; }
+    .equalizer i { display: block; width: 2px; height: 12px; border-radius: 1px; background: currentColor; transform: scaleY(.25); animation: equalize 1.1s ease-in-out infinite alternate; animation-play-state: paused; }
+    .equalizer i:nth-child(2) { animation-duration: .73s; animation-delay: -.42s; }
+    .equalizer i:nth-child(3) { animation-duration: .91s; animation-delay: -.73s; }
+    .equalizer i:nth-child(4) { animation-duration: .64s; animation-delay: -.18s; }
+    body[data-state="playing"] .record-rotor, body[data-state="playing"] .equalizer i { animation-play-state: running; }
+    body[data-state="stopped"] .equalizer { opacity: .5; }
+    .lyrics-column { min-width: 0; padding-left: clamp(24px, 3.1vw, 48px); border-left: 1px solid #f3ddb92c; }
+    .lyric-heading { display: flex; align-items: center; gap: 12px; color: var(--gold); }
+    .lyric-heading::before { content: ""; height: 1px; width: 28px; background: currentColor; opacity: .6; }
+    .lyric-heading .eyebrow { color: inherit; font-size: 10px; }
+    .lyric-heading .chinese { font-size: 15px; letter-spacing: .15em; }
+    .lyrics-stage { position: relative; height: clamp(265px, 31vh, 350px); margin: 9px 0 14px; }
+    .lyric-pane {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; justify-content: center;
+      pointer-events: none;
+    }
+    .lyric-pane.is-entering { animation: lyric-enter .24s ease-out; }
+    @keyframes lyric-enter {
+      from { opacity: .45; transform: translateY(7px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .lyric-neighbor { font-size: clamp(16px, 1.5vw, 21px); line-height: 1.75; color: #e7dcc784; min-height: 1.75em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; letter-spacing: .055em; }
+    .lyric-current {
+      margin: 20px 0 0;
+      font-size: clamp(32px, 3.25vw, 53px);
+      line-height: 1.55;
+      font-weight: 400;
+      letter-spacing: .035em;
+      text-wrap: balance;
+      overflow-wrap: anywhere;
+      color: var(--paper);
+      text-shadow: 0 3px 23px #141b1590;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+      overflow: hidden;
+    }
+    .lyric-current.is-long { font-size: clamp(24px, 2.3vw, 36px); }
+    .lyric-current span { background-clip: text; -webkit-background-clip: text; color: transparent; text-shadow: none; }
+    .lyric-translation { font-size: clamp(14px, 1.25vw, 18px); color: #e7d8bfa8; line-height: 1.7; margin-top: 9px; min-height: 1.7em; text-wrap: balance; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+    .lyric-next { margin-top: 21px; }
+    .transport { margin-top: 2px; }
+    .time-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 11px; }
+    .time { font: 12px/1.4 "Segoe UI", Arial, sans-serif; letter-spacing: .08em; font-variant-numeric: tabular-nums; color: #f3e6ccbc; }
+    .time-total { color: #eedfc380; }
+    .progress { height: 2px; border-radius: 3px; background: #fff0d52b; position: relative; }
+    .progress-fill { position: absolute; inset: 0; transform: scaleX(var(--progress)); transform-origin: left center; background: linear-gradient(90deg, #a88d5d, #f1d49a); border-radius: inherit; }
+    .progress-dot { position: absolute; left: calc(var(--progress) * 100%); top: 50%; transform: translate(-50%, -50%); width: 5px; height: 5px; background: #f8deaa; border-radius: 50%; box-shadow: 0 0 10px #ecca8a70; opacity: 0; transition: opacity .4s; }
+    body[data-state="playing"] .progress-dot, body[data-state="paused"] .progress-dot { opacity: 1; }
+    .footer { position: absolute; left: 5vw; right: 5vw; bottom: clamp(22px, 4.8vh, 54px); display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+    .footer-quote { font-size: 15px; letter-spacing: .18em; color: #f1e4caa8; margin: 0; }
+    .footer-quote span { display: inline-block; width: 22px; height: 1px; background: #e9cea076; margin: 0 13px 4px 0; }
+    .footer-right { display: flex; align-items: center; gap: 19px; }
+    .edition { font: 9px/1.5 "Segoe UI", Arial, sans-serif; letter-spacing: .23em; color: #eadcc584; }
+    .preview-button { color: #f5e7cf; background: #1d271f40; border: 1px solid #f3dfb93d; border-radius: 30px; padding: 8px 17px; font-size: 13px; letter-spacing: .05em; cursor: pointer; transition: background .2s, border-color .2s; }
+    .preview-button:hover { background: #f5d59c20; border-color: #f1d1988c; }
+    .motes { position: absolute; inset: -65px; pointer-events: none; }
+    .motes i { position: absolute; width: 3px; height: 3px; background: #f2d6a1; border-radius: 50%; opacity: 0; animation: float-mote 8s ease-in-out infinite; animation-play-state: paused; box-shadow: 0 0 9px #f4cf8855; }
+    .motes i:nth-child(1) { left: 14%; top: 71%; }
+    .motes i:nth-child(2) { left: 85%; top: 47%; animation-delay: -2s; animation-duration: 9s; }
+    .motes i:nth-child(3) { left: 20%; top: 22%; animation-delay: -4s; animation-duration: 11s; }
+    .motes i:nth-child(4) { left: 76%; top: 79%; animation-delay: -6s; }
+    body[data-state="playing"] .motes i { animation-play-state: running; }
+    @keyframes record-spin { to { transform: rotate(360deg); } }
+    @keyframes landscape-breath { from { transform: scale(1); } to { transform: scale(1.035); } }
+    @keyframes light-breath { from { opacity: .5; } to { opacity: 1; } }
+    @keyframes equalize { from { transform: scaleY(.2); } to { transform: scaleY(1); } }
+    @keyframes float-mote { 0%, 100% { opacity: 0; transform: translate(0, 8px); } 40% { opacity: .65; } 80% { opacity: 0; transform: translate(15px, -42px); } }
+    @media (min-width: 1800px) { .player { width: min(1460px, 82vw); } :root { --record-size: 370px; } }
+    @media (max-width: 850px) and (min-width: 641px) {
+      :root { --record-size: 220px; }
+      .player { width: 88vw; gap: 26px; grid-template-columns: 40% minmax(0, 1fr); }
+      .lyrics-column { padding-left: 22px; }
+      .lyric-current { font-size: 32px; }
+      .lyric-current.is-long { font-size: 25px; }
+      #title { font-size: 27px; }
+    }
+    @media (max-width: 640px) {
+      :root { --record-size: clamp(140px, 24vh, 200px); }
+      .masthead { top: 22px; left: 7vw; right: 7vw; }
+      .brand-mark { width: 29px; height: 29px; }
+      .brand { gap: 10px; }
+      .brand-name { font-size: 20px; }
+      .brand .eyebrow { font-size: 7px; }
+      .ambient-note { display: none; }
+      .player { top: 51%; width: 82vw; display: flex; flex-direction: column; gap: 24px; }
+      .album, .lyrics-column { width: 100%; }
+      .record-stage::before { inset: -12px; }
+      .record-stage::after { inset: -20px; }
+      .orbit-dot { top: -15px; width: 5px; height: 5px; }
+      .song-info { margin-top: 24px; }
+      #title { font-size: 27px; }
+      #artist { font-size: 13px; margin-top: 3px; }
+      .playback-status { margin-top: 9px; font-size: 11px; }
+      .lyrics-column { border-left: 0; padding-left: 0; text-align: center; }
+      .lyric-heading { justify-content: center; }
+      .lyric-heading .chinese { font-size: 12px; }
+      .lyric-heading .eyebrow { font-size: 8px; }
+      .lyrics-stage { height: 180px; margin: 3px 0 9px; }
+      .lyric-current { font-size: 31px; margin-top: 10px; line-height: 1.4; -webkit-line-clamp: 2; }
+      .lyric-current.is-long { font-size: 23px; }
+      .lyric-neighbor { font-size: 14px; }
+      .lyric-translation { font-size: 12px; margin-top: 5px; }
+      .lyric-next { margin-top: 9px; }
+      .footer { left: 7vw; right: 7vw; bottom: 22px; }
+      .footer-quote { font-size: 11px; letter-spacing: .06em; }
+      .footer-quote span { width: 12px; margin-right: 8px; }
+      .edition { display: none; }
+      .preview-button { font-size: 11px; padding: 6px 12px; }
+    }
+    @media (max-height: 680px) and (min-width: 641px) {
+      :root { --record-size: clamp(160px, 36vh, 240px); }
+      .player { top: 54%; }
+      .song-info { margin-top: 30px; }
+      #title { font-size: 28px; }
+      .lyrics-stage { height: 230px; }
+      .lyric-current { font-size: 34px; }
+      .lyric-current.is-long { font-size: 27px; }
+      .lyric-current { margin-top: 12px; }
+      .lyric-next { margin-top: 12px; }
+    }
+    @media (max-height: 720px) and (max-width: 640px) {
+      :root { --record-size: 130px; }
+      .player { gap: 16px; top: 52%; }
+      .song-info { margin-top: 21px; }
+      .lyrics-stage { height: 160px; }
+      .lyric-current { font-size: 27px; }
+      .lyric-current.is-long { font-size: 21px; }
+    }
+    @media (max-height: 560px) and (max-width: 640px) {
+      :root { --record-size: 80px; }
+      .player { top: 52%; gap: 12px; }
+      .record-stage::before { inset: -8px; }
+      .record-stage::after { inset: -14px; }
+      .orbit-dot { top: -10px; }
+      .song-info { margin-top: 16px; }
+      #title { font-size: 22px; }
+      #artist { font-size: 11px; }
+      .playback-status { margin-top: 5px; font-size: 10px; }
+      .lyrics-stage { height: 92px; margin: 3px 0 6px; }
+      .lyric-neighbor { display: none; }
+      .lyric-current { font-size: 25px; margin-top: 0; }
+      .lyric-current.is-long { font-size: 20px; }
+      .lyric-translation { font-size: 11px; }
+      .time { font-size: 10px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .landscape, .light, .motes i, .equalizer i { animation: none; }
+      .lyric-pane.is-entering { animation: none; }
+      .record-rotor { animation-duration: 60s; }
+    }
+  </style>
+</head>
+<body data-state="stopped">
+  <div class="landscape" aria-hidden="true"></div>
+  <div class="shade" aria-hidden="true"></div>
+  <div class="light" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="masthead">
+    <div class="brand">
+      <!--svg class="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M3 30 13 14l6 10 5-15 13 21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 35h34M22 18l3 4 3-3" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><circle cx="9" cy="8" r="2" fill="currentColor"/></svg>
+      <div><div class="brand-name"></div--><div class="eyebrow"></div></div>
+    </div>
+  </header>
+
+  <main class="player" aria-label="正在播放的音乐">
+    <section class="album" aria-label="歌曲信息">
+      <div class="record-stage">
+        <div class="record-rotor" id="record">
+          <div class="record-art">
+            <div class="record-placeholder" id="cover-placeholder" aria-hidden="true">
+              <svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="41" stroke="currentColor" stroke-width=".6"/><path d="m17 62 22-28 14 18 11-24 20 34M22 69h57" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="68" cy="24" r="4" stroke="currentColor"/></svg>
+            </div>
+            <img id="cover" alt="歌曲封面" hidden>
+          </div>
+          <span class="spindle" aria-hidden="true"></span>
+        </div>
+        <div class="record-sheen" aria-hidden="true"></div>
+        <span class="orbit-dot" aria-hidden="true"></span>
+        <div class="motes" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      </div>
+      <div class="song-info">
+        <h1 id="title">等一首歌的时间</h1>
+        <div class="playback-status" role="status">
+          <span class="equalizer" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span id="state-label">等待播放</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="lyrics-column" aria-label="同步歌词">
+      <div class="lyric-heading"><span class="chinese">此刻 · 聆听</span><span class="eyebrow">THE SOUND OF NOW</span></div>
+      <div class="lyrics-stage" id="lyrics-stage">
+        <div class="lyric-pane"><div class="lyric-neighbor"></div><div class="lyric-current"></div><div class="lyric-translation"></div><div class="lyric-neighbor lyric-next"></div></div>
+      </div>
+      <div class="transport">
+        <div class="time-row"><span class="time" id="elapsed">0:00</span><span class="time time-total" id="duration">0:00</span></div>
+        <div class="progress" id="progress" role="progressbar" aria-label="播放进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-fill"></div><span class="progress-dot"></span></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <!p class="footer-quote"><span aria-hidden="true"></span> </p>
+    <div class="footer-right"><span class="edition">Powered by
+ Alice-Cartelet.</span><button class="preview-button" id="preview-button" type="button" hidden>预览效果</button></div>
+  </footer>
+
+  <script>
+    (() => {
+      'use strict';
+
+      // Compatible with html-wallpaper.html: no invented player commands.
+      // Incoming messages: { version: 1, type: 'musicplayer.track', track: ... }
+      // or { version: 1, type: 'musicplayer.playback', playback: ... }.
+      const $ = id => document.getElementById(id);
+      const clamp = (n, min = 0, max = 1) => Math.max(min, Math.min(max, n));
+      const finiteMs = value => Math.max(0, Number.isFinite(Number(value)) ? Number(value) : 0);
+      const asText = value => typeof value === 'string' ? value : '';
+      const lyricPane = document.querySelector('.lyric-pane');
+      const cover = $('cover');
+      const bridge = window.chrome?.webview;
+      let track = { title: '', lyrics: [] };
+      let playback = { positionMs: 0, durationMs: 0, state: 'stopped' };
+      let receivedAt = performance.now();
+      let renderedKey = '', currentSpans = [], coverUrl = '';
+      let lastFrame = -Infinity, previousProgress = -1, previousTime = '';
+      let previewing = false, previewPosition = 0, previewStartedAt = 0;
+
+      function formatTime(ms) {
+        const seconds = Math.floor(finiteMs(ms) / 1000);
+        return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+      }
+
+      function normalizeLyrics(lyrics) {
+        if (!Array.isArray(lyrics)) return [];
+        return lyrics.filter(line => line && Number.isFinite(Number(line.startMs))).map(line => ({
+          startMs: finiteMs(line.startMs), text: asText(line.text),
+          translation: asText(line.translation), hasTiming: Boolean(line.hasTiming),
+          chars: Array.isArray(line.chars) ? line.chars.filter(char => char && Number.isFinite(Number(char.offsetMs)) && Number.isFinite(Number(char.charIndex))).map(char => ({
+            offsetMs: finiteMs(char.offsetMs), charIndex: Math.floor(finiteMs(char.charIndex))
+          })).sort((a, b) => a.offsetMs - b.offsetMs) : []
+        })).sort((a, b) => a.startMs - b.startMs);
+      }
+
+      function setCover(url) {
+        const next = asText(url);
+        if (coverUrl === next) return;
+        coverUrl = next;
+        cover.hidden = true;
+        $('cover-placeholder').hidden = false;
+        if (/^(data:image\/|blob:)/i.test(next)) cover.src = next;
+        else cover.removeAttribute('src');
+      }
+      cover.addEventListener('load', () => {
+        cover.hidden = false;
+        $('cover-placeholder').hidden = true;
+      });
+      cover.addEventListener('error', () => {
+        cover.hidden = true;
+        $('cover-placeholder').hidden = false;
+      });
+
+      function setPlayback(value) {
+        if (!value || typeof value !== 'object') return;
+        playback = {
+          positionMs: finiteMs(value.positionMs), durationMs: finiteMs(value.durationMs),
+          state: ['playing', 'paused', 'stopped'].includes(value.state) ? value.state : 'stopped'
+        };
+        receivedAt = performance.now();
+        document.body.dataset.state = playback.state;
+        $('state-label').textContent = { playing: '正在播放', paused: '已暂停', stopped: track.title ? '播放已停止' : '等待播放' }[playback.state];
+        $('preview-button').textContent = playback.state === 'playing' ? '暂停预览' : '继续预览';
+      }
+
+      function setTrack(value) {
+        if (!value || typeof value !== 'object') return;
+        track = {
+          title: asText(value.title), artist: asText(value.artist), album: asText(value.album),
+          lyrics: normalizeLyrics(value.lyrics)
+        };
+        $('title').textContent = track.title || '等一首歌的时间';
+        $('title').title = track.title;
+        // The artist row is optional so removing it does not interrupt the
+        // remaining track updates, including the cover and playback state.
+        const artist = $('artist');
+        if (artist) {
+          artist.textContent = [track.artist, track.album].filter(Boolean).join(' · ') || '把日常，交给旋律';
+          artist.title = artist.textContent;
+        }
+        cover.alt = track.title ? `${track.title} · 歌曲封面` : '歌曲封面';
+        setCover(value.coverDataUrl);
+        renderedKey = '';
+        setPlayback({ positionMs: 0, durationMs: 0, state: 'stopped' });
+      }
+
+      function onMessage(event) {
+        let data = event?.data;
+        if (typeof data === 'string') {
+          try { data = JSON.parse(data); } catch { return; }
+        }
+        if (!data || data.version !== 1) return;
+        if (data.type === 'musicplayer.track') setTrack(data.track);
+        else if (data.type === 'musicplayer.playback') setPlayback(data.playback);
+      }
+
+      function findLine(position) {
+        let low = 0, high = track.lyrics.length;
+        while (low < high) {
+          const mid = (low + high) >>> 1;
+          if (track.lyrics[mid].startMs <= position) low = mid + 1;
+          else high = mid;
+        }
+        return low - 1;
+      }
+
+      function highlightAmount(line, position, end) {
+        const length = Array.from(line.text).length;
+        const offset = position - line.startMs;
+        const timings = line.chars;
+        if (line.hasTiming && timings.length) {
+          if (offset < timings[0].offsetMs) return 0;
+          for (let i = 0; i + 1 < timings.length; i++) {
+            const a = timings[i], b = timings[i + 1];
+            if (offset >= a.offsetMs && offset < b.offsetMs && b.offsetMs > a.offsetMs) {
+              return clamp(a.charIndex + (b.charIndex - a.charIndex) * clamp((offset - a.offsetMs) / (b.offsetMs - a.offsetMs)), 0, length);
+            }
+          }
+          return length;
+        }
+        return end > line.startMs ? length * clamp(offset / (end - line.startMs)) : 0;
+      }
+
+      function changeLine(index, line) {
+        const hasLyrics = track.lyrics.length > 0;
+        const text = line?.text || (line ? '· · ·' : hasLyrics ? '旋律正在路上' : track.title ? '静听这一刻的旋律' : '让旋律，留在山间');
+        const key = `${index}|${text}|${line?.translation || ''}`;
+        if (key === renderedKey) return;
+        renderedKey = key;
+
+        const current = lyricPane.querySelector('.lyric-current');
+        current.classList.toggle('is-long', Array.from(text).length > 22);
+        currentSpans = line?.text ? Array.from(text, char => {
+          const span = document.createElement('span');
+          // Track names and lyrics are always rendered as text, never HTML.
+          span.textContent = char;
+          return span;
+        }) : [];
+        if (currentSpans.length) current.replaceChildren(...currentSpans);
+        else current.textContent = text;
+        lyricPane.querySelector('.lyric-neighbor').textContent = track.lyrics[index - 1]?.text || '';
+        lyricPane.querySelector('.lyric-translation').textContent = line?.translation || (!line ? hasLyrics ? '等下一句，慢慢响起' : track.title ? '暂无歌词 · 让音乐陪着你' : '选一首喜欢的歌，让时间慢下来' : '');
+        lyricPane.querySelector('.lyric-next').textContent = track.lyrics[index + 1]?.text || '';
+        lyricPane.classList.remove('is-entering');
+        void lyricPane.offsetWidth;
+        lyricPane.classList.add('is-entering');
+      }
+
+      function render(now) {
+        requestAnimationFrame(render);
+        if (document.hidden || now - lastFrame < 1000 / 30) return;
+        lastFrame = now;
+        let position;
+        if (previewing) {
+          position = previewPosition + (playback.state === 'playing' ? now - previewStartedAt : 0);
+          if (position >= playback.durationMs) {
+            previewPosition = 0;
+            previewStartedAt = now;
+            position = 0;
+          }
+        } else {
+          // Same 1500 ms interpolation cap as the supplied wallpaper: pauses,
+          // seeks and new packets immediately replace the playback clock.
+          position = playback.positionMs + (playback.state === 'playing' ? clamp(now - receivedAt, 0, 1500) : 0);
+        }
+        position = Math.max(0, position);
+        if (playback.durationMs > 0) position = Math.min(playback.durationMs, position);
+        const index = findLine(position), line = track.lyrics[index];
+        changeLine(index, line);
+        const end = track.lyrics[index + 1]?.startMs ?? playback.durationMs;
+        const lit = line ? highlightAmount(line, position, end) : 0;
+        currentSpans.forEach((span, i) => {
+          const percent = Math.round(clamp(lit - i) * 100);
+          if (span.dataset.lit !== String(percent)) {
+            span.dataset.lit = String(percent);
+            span.style.backgroundImage = `linear-gradient(to right, #fff0ca ${percent}%, #e8d9ba8c ${percent}%)`;
+          }
+        });
+        const progress = playback.durationMs ? clamp(position / playback.durationMs) : 0;
+        if (Math.abs(progress - previousProgress) >= .0001 || progress === 0 && previousProgress !== 0) {
+          $('progress').style.setProperty('--progress', progress.toFixed(5));
+          $('progress').setAttribute('aria-valuenow', String(Math.round(progress * 100)));
+          previousProgress = progress;
+        }
+        const timeKey = `${formatTime(position)}/${formatTime(playback.durationMs)}`;
+        if (timeKey !== previousTime) {
+          $('elapsed').textContent = formatTime(position);
+          $('duration').textContent = formatTime(playback.durationMs);
+          previousTime = timeKey;
+        }
+      }
+
+      // An explicit, silent browser preview. The real WebView2 connection never
+      // uses demo data, and its playback remains entirely driven by the player.
+      function startPreview() {
+        const artwork = '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#a19c72"/><stop offset=".6" stop-color="#536553"/><stop offset="1" stop-color="#1e3930"/></linearGradient></defs><rect width="600" height="600" fill="url(#g)"/><circle cx="426" cy="167" r="53" fill="#e2c78d"/><path d="M0 421 177 196 291 333 377 160 600 423v177H0" fill="#d4c8a0"/><path d="m0 482 160-175 119 125 119-168 202 224v112H0" fill="#788873"/><path d="m0 538 190-133 121 91 93-88 196 136v56H0" fill="#314e43"/><circle cx="300" cy="300" r="273" fill="none" stroke="#e9d9aa" stroke-opacity=".45" stroke-width="1"/></svg>';
+        const verses = [
+          ['风经过，金色的山野', '让每一个音符，都有停留的地方'],
+          ['把心事，轻轻交给远方', '在旋律里，慢慢找回自己的节奏'],
+          ['一半是秋色，一半是温柔', '此刻的风景，刚好与你相遇'],
+          ['让时间，沿着湖面流淌', '闭上眼，也能听见光'],
+          ['山野有声，心中有光', '把这一刻，留给喜欢的音乐'],
+          ['让旋律，留在山间', '下一首歌，下一段好时光']
+        ];
+        setTrack({ title: '山间来信', artist: '秋日随想', album: '此刻的风景', coverDataUrl: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(artwork), lyrics: verses.map(([text, translation], i) => ({ startMs: i * 7000, text, translation })) });
+        previewPosition = 0;
+        previewStartedAt = performance.now();
+        previewing = true;
+        setPlayback({ positionMs: 0, durationMs: 42000, state: 'playing' });
+      }
+      $('preview-button').addEventListener('click', () => {
+        if (!previewing) return startPreview();
+        if (playback.state === 'playing') {
+          previewPosition += performance.now() - previewStartedAt;
+          setPlayback({ positionMs: previewPosition, durationMs: 42000, state: 'paused' });
+        } else {
+          previewStartedAt = performance.now();
+          setPlayback({ positionMs: previewPosition, durationMs: 42000, state: 'playing' });
+        }
+      });
+
+      if (bridge && typeof bridge.addEventListener === 'function') {
+        bridge.addEventListener('message', onMessage);
+        bridge.postMessage('musicplayer.requestState');
+      } else {
+        $('preview-button').hidden = false;
+        if (new URLSearchParams(window.location.search).get('demo') === '1') startPreview();
+      }
+      requestAnimationFrame(render);
+    })();
+  </script>
+</body>
+</html>

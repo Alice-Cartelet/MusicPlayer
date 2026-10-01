@@ -36,6 +36,7 @@
 #include "version.h"
 #include <QFontDatabase>
 #include "desktopwallpaper.h"
+#include "musicwallpaperdata.h"
 class BlurredBackground : public QWidget
 {
 public: explicit BlurredBackground(QWidget *p = nullptr) : QWidget(p)
@@ -543,6 +544,11 @@ private: int m_playingRow = -1;
 ;
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
+    QSettings initialSettings("MusicPlayer", "MusicPlayer");
+    if (!initialSettings.contains("htmlWallpaperPath")) {
+        initialSettings.setValue("htmlWallpaperPath",
+                                 QCoreApplication::applicationDirPath() + "/music-wallpaper.html");
+    }
     setWindowFlags(Qt::FramelessWindowHint | Qt::Window);
     setAttribute(Qt::WA_TranslucentBackground, false);
     setAcceptDrops(true);
@@ -579,6 +585,18 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
             );
     m_wallpaperLyrics = new DesktopWallpaperLyrics(this);
     m_settingsDlg = new SettingsDialog(this);
+    m_htmlWallpaper = new HtmlWallpaper(this);
+    connect(m_player, &QMediaPlayer::metaDataChanged, this, &MainWindow::syncHtmlWallpaperTrack);
+    connect(m_settingsDlg, &SettingsDialog::htmlWallpaperChanged, m_htmlWallpaper, &HtmlWallpaper::setWallpaper);
+    connect(m_htmlWallpaper, &HtmlWallpaper::errorOccurred, this, [this](const QString &message) {
+        QSettings settings("MusicPlayer", "MusicPlayer");
+        settings.setValue("htmlWallpaperEnabled", false);
+        m_settingsDlg->setHtmlWallpaperSettings(settings.value("htmlWallpaperPath").toString(), false);
+        QMessageBox::warning(this, "HTML 桌面背景", message);
+    });
+    connect(qApp, &QCoreApplication::aboutToQuit, m_htmlWallpaper, [this] {
+        m_htmlWallpaper->setWallpaper(m_htmlWallpaper->filePath(), false);
+    });
     m_settingsDlg->loadSavedFonts();
     connect(m_settingsDlg, &SettingsDialog::musicDirChanged, this, &MainWindow::onMusicDirChanged);
     connect(m_settingsDlg, &SettingsDialog::lyricsDirChanged, this, &MainWindow::onLyricsDirChanged);
@@ -726,6 +744,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     m_miniControl->setOpacityValue(s.value("miniOpacity", 85).toInt());
     if (m_enableMiniControl) m_miniControl->show();
     initWallpaperLyrics();
+    QTimer::singleShot(0, this, [this] {
+        QSettings settings("MusicPlayer", "MusicPlayer");
+        syncHtmlWallpaperTrack();
+        syncHtmlWallpaperPlayback();
+        m_htmlWallpaper->setWallpaper(settings.value("htmlWallpaperPath").toString(),
+                                     settings.value("htmlWallpaperEnabled", false).toBool());
+    });
     QTimer::singleShot(400, this, [this]
                        {
                            restorePlaybackState();
@@ -1403,6 +1428,8 @@ void MainWindow::showPlaylistSwitchMenu()
                     {
                         m_player->stop();
                         m_currentIndex = -1;
+                        syncHtmlWallpaperTrack();
+                        syncHtmlWallpaperPlayback();
                         m_lblTitle->setText("暂无歌曲");
                         m_lblArtist->setText("歌单为空");
                         m_lblTimeElapsed->setText("0:00");
@@ -1459,6 +1486,8 @@ void MainWindow::showPlaylistSwitchMenu()
                     {
                         m_player->stop();
                         m_currentIndex = -1;
+                        syncHtmlWallpaperTrack();
+                        syncHtmlWallpaperPlayback();
                         m_lblTitle->setText("暂无歌曲");
                         m_lblArtist->setText("歌单为空");
                         m_lblTimeElapsed->setText("0:00");
@@ -1841,17 +1870,20 @@ void MainWindow::onMediaStatusChanged(QMediaPlayer::MediaStatus s)
 }
 void MainWindow::onPlaybackStateChanged(QMediaPlayer::PlaybackState s)
 {
+    syncHtmlWallpaperPlayback();
     m_miniControl->setPlaying(s == QMediaPlayer::PlayingState);
     static_cast<IconButton*>(m_btnPlayPause)->setIcon( s == QMediaPlayer::PlayingState ? IconButton::Pause : IconButton::Play );
 }
 void MainWindow::onDurationChanged(qint64 d)
 {
+    syncHtmlWallpaperPlayback();
     m_seekBar->setRange(0, (int)d);
     m_lblTimeTotal->setText(formatTime(d));
     if (m_currentIndex >= 0) m_playlist->updateDuration(m_currentIndex, d);
 }
 void MainWindow::onPositionChanged(qint64 pos)
 {
+    syncHtmlWallpaperPlayback();
     m_miniControl->setProgress( pos, m_player->duration() );
     if (!m_seeking)
     {
@@ -1878,6 +1910,7 @@ void MainWindow::onOpenSettings()
     m_settingsDlg->setVolume(m_audio->volume());
     QSettings s("MusicPlayer", "MusicPlayer");
     m_settingsDlg->setMinimizeToTray(s.value("minimizeToTray", false).toBool());
+    m_settingsDlg->setHtmlWallpaperSettings(s.value("htmlWallpaperPath").toString(), s.value("htmlWallpaperEnabled", false).toBool());
     m_settingsDlg->setHideOnHover(s.value("hideOnHover", false).toBool());
     m_settingsDlg->setLyricColorSung(s.value("lyricColorSung", "#E63248").toString());
     m_settingsDlg->setLyricColorUnsang(s.value("lyricColorUnsang", "#F1DDDF").toString());
@@ -1904,12 +1937,16 @@ void MainWindow::onMusicDirChanged(const QString &dir)
     m_player->stop();
     m_playlist->clear();
     m_currentIndex = -1;
+    syncHtmlWallpaperTrack();
+    syncHtmlWallpaperPlayback();
     loadDir(dir);
 }
 void MainWindow::onLyricsDirChanged(const QString &dir)
 {
     m_lyricsDir = dir;
     if (m_currentIndex >= 0) m_lyricsOverlay->loadLyrics(findLyricFile(m_playlist->track(m_currentIndex).filePath));
+    syncHtmlWallpaperTrack();
+    syncHtmlWallpaperPlayback();
 }
 void MainWindow::onTrayActivated(QSystemTrayIcon::ActivationReason reason)
 {
@@ -1970,6 +2007,7 @@ void MainWindow::closeEvent(QCloseEvent *e)
     m_lyricsOverlay->close();
     m_miniControl->close();
     if (m_wallpaperLyrics) m_wallpaperLyrics->setEnabled(false);
+    if (m_htmlWallpaper) m_htmlWallpaper->setWallpaper(m_htmlWallpaper->filePath(), false);
     e->accept();
 }
 void MainWindow::resizeEvent(QResizeEvent *e)
@@ -2082,6 +2120,8 @@ void MainWindow::restorePlaybackState()
         m_listView->setCurrentIndex(m_playlist->index(index));
         if (m_trackDelegate) m_trackDelegate->setPlayingRow(index);
         m_lyricsOverlay->loadLyrics(findLyricFile(t.filePath));
+        syncHtmlWallpaperTrack();
+        syncHtmlWallpaperPlayback();
         if (m_wallpaperLyrics->isEnabled()) m_wallpaperLyrics->setTrackTitle(t.title);
         connect(m_player, &QMediaPlayer::mediaStatusChanged, this, [this, pos](QMediaPlayer::MediaStatus status)
                 {
@@ -2217,6 +2257,8 @@ void MainWindow::playTrack(int index)
     if (m_trackDelegate) m_trackDelegate->setPlayingRow(index);
     m_listView->viewport()->update();
     m_lyricsOverlay->loadLyrics(findLyricFile(t.filePath));
+    syncHtmlWallpaperTrack();
+    syncHtmlWallpaperPlayback();
     if (m_showLyrics) m_lyricsOverlay->show();
     if (m_wallpaperLyrics->isEnabled())
     {
@@ -2294,6 +2336,8 @@ void MainWindow::onAddCoverImage()
         QMessageBox::warning(this, "错误", "写入封面失败，文件可能无法写入");
         return;
     }
+    syncHtmlWallpaperTrack();
+    syncHtmlWallpaperPlayback();
     QPixmap pix;
     pix.loadFromData(imgData);
     if (!pix.isNull())
@@ -2303,4 +2347,48 @@ void MainWindow::onAddCoverImage()
         m_miniControl->setCover(pix);
         if (m_btnAddCover) m_btnAddCover->hide();
     }
+}
+
+void MainWindow::syncHtmlWallpaperTrack()
+{
+    if (!m_htmlWallpaper || !m_lyricsOverlay) return;
+    QJsonObject data{{"title", ""}, {"artist", ""}, {"album", ""},
+        {"coverDataUrl", ""}, {"lyrics", QJsonArray()}};
+    if (m_currentIndex >= 0 && m_currentIndex < m_playlist->count()) {
+        const auto track = m_playlist->track(m_currentIndex);
+        const auto metadata = m_player->metaData();
+        const bool matchesSource = m_player->source() == QUrl::fromLocalFile(track.filePath);
+        const QString title = matchesSource ? metadata.stringValue(QMediaMetaData::Title) : QString();
+        const QString artist = matchesSource ? metadata.stringValue(QMediaMetaData::ContributingArtist) : QString();
+        const QString album = matchesSource ? metadata.stringValue(QMediaMetaData::AlbumTitle) : QString();
+        data["title"] = title.isEmpty() ? track.title : title;
+        data["artist"] = artist.isEmpty() ? track.artist : artist;
+        data["album"] = album.isEmpty() ? track.album : album;
+        data["lyrics"] = MusicWallpaperData::lyricTimeline(m_lyricsOverlay->lyricParser());
+        QImage cover;
+        if (track.filePath.endsWith(".mp3", Qt::CaseInsensitive))
+            cover = QImage::fromData(Id3v2Helper::readCover(track.filePath));
+        if (cover.isNull() && matchesSource)
+            cover = qvariant_cast<QImage>(metadata.value(QMediaMetaData::CoverArtImage));
+        if (cover.isNull() && matchesSource)
+            cover = qvariant_cast<QImage>(metadata.value(QMediaMetaData::ThumbnailImage));
+        data["coverDataUrl"] = MusicWallpaperData::imageDataUrl(cover);
+    }
+    m_htmlWallpaper->updateTrack(data);
+    syncHtmlWallpaperPlayback();
+}
+
+void MainWindow::syncHtmlWallpaperPlayback()
+{
+    if (!m_htmlWallpaper || !m_lyricsOverlay) return;
+    const bool hasTrack = m_currentIndex >= 0 && m_currentIndex < m_playlist->count();
+    const qint64 position = hasTrack ? m_player->position() : 0;
+    const qint64 duration = hasTrack ? m_player->duration() : 0;
+    const auto state = m_player->playbackState();
+    const QString stateName = !hasTrack || state == QMediaPlayer::StoppedState ? "stopped" :
+        state == QMediaPlayer::PlayingState ? "playing" : "paused";
+    const LrcxParser empty;
+    m_htmlWallpaper->updatePlayback(QJsonObject{{"positionMs", position}, {"durationMs", duration},
+        {"state", stateName}, {"lyric", MusicWallpaperData::lyricAt(
+            hasTrack ? m_lyricsOverlay->lyricParser() : empty, position, duration)}});
 }

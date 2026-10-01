@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="/docs">
+    <file alias="HTML-WALLPAPER.md">HTML-WALLPAPER.md</file>
+  </qresource>
+</RCC>

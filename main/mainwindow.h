@@ -20,6 +20,7 @@
 #include "settingsdialog.h"
 #include "minicontrolwindow.h"
 #include "desktopwallpaper.h"
+#include "htmlwallpaper.h"
 class MarqueeLabel;
 class CoverLabel;
 class TrackDelegate;
@@ -71,6 +72,8 @@ private: void setupPlayer();
     void showPlaylistSwitchMenu();
     void showAddToPlaylistMenu(int trackRow, const QPoint &globalPos);
     void initWallpaperLyrics();
+    void syncHtmlWallpaperTrack();
+    void syncHtmlWallpaperPlayback();
 private: QMediaPlayer *m_player = nullptr;
     QAudioOutput *m_audio = nullptr;
     Playlist *m_playlist = nullptr;
@@ -121,5 +124,6 @@ private: QMediaPlayer *m_player = nullptr;
     QMenu *m_trayMenu = nullptr;
     bool m_minimizeToTray = false;
     DesktopWallpaperLyrics *m_wallpaperLyrics = nullptr;
+    HtmlWallpaper *m_htmlWallpaper = nullptr;
 }
 ;

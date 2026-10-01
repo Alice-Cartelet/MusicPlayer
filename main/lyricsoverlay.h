@@ -9,6 +9,7 @@ class LyricsOverlay : public QWidget
     Q_OBJECT
 public: explicit LyricsOverlay(QWidget *parent = nullptr);
     void loadLyrics(const QString &path);
+    const LrcxParser &lyricParser() const { return m_parser; }
     void updatePosition(qint64 posMs);
     void getLyricLines(qint64 posMs, QString &prev, QString &cur, QString &next) const;
     void getLyricLines(qint64 posMs, QString &prev, QString &cur, QString &next, QString &translation) const;

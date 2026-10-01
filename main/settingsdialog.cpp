@@ -18,6 +18,11 @@
 #include <QWheelEvent>
 #include <QComboBox>
 #include <QFontComboBox>
+#include <QFileInfo>
+#include <QTextBrowser>
+#include <QDialogButtonBox>
+#include <QTextDocument>
+#include <QUrl>
 namespace {
 class NoWheelSlider : public QSlider
 {
@@ -214,6 +219,72 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     colorLayout->addLayout(makeColorRow(m_edtColorUnsang, m_swatchUnsang, "#F1DDDF"));
     lyricForm->addRow("歌词颜色：", colorLayout);
     root->addWidget(grpLyric);
+    QGroupBox *grpHtml = new QGroupBox("HTML 桌面背景");
+    grpHtml->setObjectName("settingsGroup");
+    auto *htmlForm = new QFormLayout(grpHtml);
+    htmlForm->setSpacing(12);
+    htmlForm->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    m_chkHtmlWallpaper = new QCheckBox("使用 HTML 作为桌面背景");
+    m_chkHtmlWallpaper->setObjectName("settingsCheck");
+    htmlForm->addRow("", m_chkHtmlWallpaper);
+    auto *htmlRow = new QHBoxLayout;
+    htmlRow->setSpacing(12);
+    m_edtHtmlWallpaper = new QLineEdit;
+    m_edtHtmlWallpaper->setReadOnly(true);
+    m_edtHtmlWallpaper->setPlaceholderText("选择本地 HTML 文件…");
+    auto *htmlBrowse = new QPushButton("浏览");
+    htmlBrowse->setObjectName("browseBtn");
+    htmlBrowse->setFixedSize(64, 32);
+    htmlRow->addWidget(m_edtHtmlWallpaper, 1);
+    htmlRow->addWidget(htmlBrowse);
+    htmlForm->addRow("HTML 文件：", htmlRow);
+    auto *htmlHint = new QLabel("网页铺满桌面背景，桌面图标和任务栏照常使用。关闭后恢复系统壁纸。");
+    htmlHint->setWordWrap(true);
+    htmlForm->addRow("", htmlHint);
+    auto *htmlDocs = new QPushButton("歌词接口文档");
+    htmlDocs->setObjectName("htmlWallpaperDocsBtn");
+    htmlDocs->setToolTip("查看 HTML 歌词与封面接口的 Markdown 开发文档");
+    auto *docsRow = new QHBoxLayout;
+    docsRow->addWidget(htmlDocs);
+    docsRow->addStretch();
+    htmlForm->addRow("开发文档：", docsRow);
+    connect(htmlDocs, &QPushButton::clicked, this, [this] {
+        const QString documentPath = QCoreApplication::applicationDirPath() + "/HTML-WALLPAPER.md";
+        QFile document(documentPath);
+        if (!document.open(QIODevice::ReadOnly)) {
+            document.setFileName(":/docs/HTML-WALLPAPER.md");
+            if (!document.open(QIODevice::ReadOnly)) {
+                QMessageBox::warning(this, "歌词接口文档", "无法读取 HTML-WALLPAPER.md 开发文档。");
+                return;
+            }
+        }
+        auto *viewer = new QDialog(this);
+        viewer->setAttribute(Qt::WA_DeleteOnClose);
+        viewer->setWindowTitle("HTML 歌词与封面接口 · HTML-WALLPAPER.md");
+        viewer->setWindowModality(Qt::WindowModal);
+        viewer->resize(880, 680);
+        viewer->setMinimumSize(600, 420);
+        auto *layout = new QVBoxLayout(viewer);
+        auto *browser = new QTextBrowser(viewer);
+        browser->setObjectName("htmlWallpaperDocsView");
+        browser->setStyleSheet("QTextBrowser { background: #ffffff; color: #253047; border: none; padding: 18px; }");
+        browser->setOpenExternalLinks(true);
+        browser->document()->setDefaultFont(QFont("Microsoft YaHei", 11));
+        browser->document()->setBaseUrl(QUrl::fromLocalFile(documentPath));
+        browser->setMarkdown(QString::fromUtf8(document.readAll()));
+        layout->addWidget(browser);
+        auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, viewer);
+        buttons->button(QDialogButtonBox::Close)->setText("关闭");
+        connect(buttons, &QDialogButtonBox::rejected, viewer, &QDialog::reject);
+        layout->addWidget(buttons);
+        viewer->show();
+    });
+    root->addWidget(grpHtml);
+    connect(htmlBrowse, &QPushButton::clicked, this, [this] {
+        const QString path = QFileDialog::getOpenFileName(this, "选择 HTML 桌面背景",
+            m_edtHtmlWallpaper->text(), "HTML 文件 (*.html *.htm)");
+        if (!path.isEmpty()) m_edtHtmlWallpaper->setText(path);
+    });
     QGroupBox *grpWall = new QGroupBox("🖼  壁纸歌词");
     grpWall->setObjectName("wallGroup");
     QFormLayout *wallForm = new QFormLayout(grpWall);
@@ -410,6 +481,19 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     connect(m_btnOk, &QPushButton::clicked, this, [this]
             {
                 QSettings s("MusicPlayer", "MusicPlayer");
+                const QString htmlPath = m_edtHtmlWallpaper->text();
+                const bool htmlEnabled = m_chkHtmlWallpaper->isChecked();
+                const QFileInfo htmlFile(htmlPath);
+                if (htmlEnabled && (!htmlFile.isFile() || !htmlFile.isReadable() ||
+                    (htmlFile.suffix().compare("html", Qt::CaseInsensitive) != 0 &&
+                     htmlFile.suffix().compare("htm", Qt::CaseInsensitive) != 0))) {
+                    QMessageBox::warning(this, "HTML 桌面背景", "请选择可读取的 HTML 文件（.html 或 .htm）。");
+                    return;
+                }
+                const bool htmlChanged = htmlPath != s.value("htmlWallpaperPath").toString() ||
+                    htmlEnabled != s.value("htmlWallpaperEnabled", false).toBool();
+                s.setValue("htmlWallpaperPath", htmlPath);
+                s.setValue("htmlWallpaperEnabled", htmlEnabled);
                 QString newSung = m_edtColorSung->text();
                 QString newMusicDir = m_edtMusic->text();
                 QString newLyricsDir = m_edtLyrics->text();
@@ -498,10 +582,12 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
                 if (oldWallTitleFont != newWallTitleFont) emit wallpaperTitleFontSizeChanged(newWallTitleFont);emit wallpaperMaxHeightPercentChanged(newWallMaxHeight);
                 if (oldWallExtraFont != newWallExtraFont) emit wallpaperExtraFontSizeChanged(newWallExtraFont);
                 if (oldWallExtraMode != newWallExtraMode) emit wallpaperExtraLyricsModeChanged(static_cast<WallpaperExtraLyricsMode>(newWallExtraMode));
+                if (htmlChanged) emit htmlWallpaperChanged(htmlPath, htmlEnabled);
                 accept();
             });
     connect(m_btnCancel, &QPushButton::clicked, this, &QDialog::reject);
     QSettings s("MusicPlayer", "MusicPlayer");
+    setHtmlWallpaperSettings(s.value("htmlWallpaperPath").toString(), s.value("htmlWallpaperEnabled", false).toBool());
     m_edtMusic->setText(s.value("musicDir").toString());
     m_edtLyrics->setText(s.value("lyricsDir").toString());
     m_chkLyrics->setChecked(s.value("showLyrics", false).toBool());
@@ -538,6 +624,11 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     updateSwatch(m_swatchWallCurr, wallColorC);
 }
 QString SettingsDialog::musicDir() const{return m_edtMusic->text();}
+void SettingsDialog::setHtmlWallpaperSettings(const QString &path, bool enabled)
+{
+    m_edtHtmlWallpaper->setText(path);
+    m_chkHtmlWallpaper->setChecked(enabled);
+}
 QString SettingsDialog::lyricsDir() const{return m_edtLyrics->text();}
 bool SettingsDialog::showLyrics() const{return m_chkLyrics->isChecked();}
 float SettingsDialog::volume() const{return m_volSlider->value() / 100.f;}
@@ -762,7 +853,7 @@ void SettingsDialog::applyStyle()
         color:white;
         selection-background-color:#6658F0;
     }
-    QPushButton#browseBtn
+    QPushButton#browseBtn, QPushButton#htmlWallpaperDocsBtn
     {
         background:qlineargradient( x1:0,y1:0, x2:1,y2:1, stop:0 #2F3555, stop:1 #242944 );
         border:none;
@@ -771,11 +862,11 @@ void SettingsDialog::applyStyle()
         font-size:12px;
         padding:6px 12px;
     }
-    QPushButton#browseBtn:hover
+    QPushButton#browseBtn:hover, QPushButton#htmlWallpaperDocsBtn:hover
     {
         background:qlineargradient( x1:0,y1:0, x2:1,y2:1, stop:0 #4A56AA, stop:1 #6559F4 );
     }
-    QPushButton#browseBtn:pressed
+    QPushButton#browseBtn:pressed, QPushButton#htmlWallpaperDocsBtn:pressed
     {
         padding-top:8px;
     }
