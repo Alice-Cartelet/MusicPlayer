@@ -1,202 +1,183 @@
-# 🎵 极简本地桌面歌词音乐播放器
-![C++](https://img.shields.io/badge/C++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white)
-![Qt](https://img.shields.io/badge/Qt-%23217346.svg?style=for-the-badge&logo=Qt&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)
+# 🎵 MusicPlayer · 本地音乐与桌面歌词播放器
 
-基于 Qt 6 开发的简洁本地音乐播放器，有半透明磨砂效果，功能极简，有附加桌面歌词显示功能，并可以嵌入桌面壁纸作为壁纸一部分。
-<img width="1436" height="1059" alt="屏幕截图 2026-05-25 204412" src="https://github.com/user-attachments/assets/c485933e-efbc-4b97-aa8a-87ca12b52ed0" />
+让音乐融入桌面，让歌词陪伴每一次聆听。
 
+**MusicPlayer** 是一款面向 Windows 的本地音乐播放器，使用 **C++17 与 Qt 6** 开发。它将本地音乐播放、歌单管理、专辑封面和同步歌词结合在一起，并提供桌面悬浮歌词、嵌入式壁纸歌词以及可自定义的 HTML 音乐壁纸。
 
+当前源码版本：**2.0.0**。
 
+## 📸 界面预览
 
----
-# 🎵 MusicPlayer
+### 主播放界面
 
-一个基于 Qt 开发的现代化桌面音乐播放器，支持歌词逐字高亮、专辑封面显示、毛玻璃 UI、美化动画与播放进度记忆等功能，并具有嵌入桌面壁纸，淡入淡出歌词的功能，兼顾视觉体验与日常使用。
+无边框窗口搭配半透明效果和封面模糊背景，左侧展示歌曲封面与播放控制，右侧集中管理音乐列表、收藏和歌词编辑。
 
----
+![MusicPlayer 主播放界面](../屏幕截图%202026-10-01%20083801.png)
 
-## ✨ 核心特性 (Features)
+### HTML 音乐壁纸
 
-* 🎶 **本地音乐自动扫描**
+将封面、歌名、播放进度和同步歌词放到桌面背景中。示例页面采用唱片风格展示封面，并配合上下句歌词与当前句高亮呈现播放状态。
 
-  * 自动递归扫描音乐目录，识别常见音频格式并生成播放列表。
-  * 支持多级文件夹读取，无需手动逐个添加歌曲。
-  * 智能排序：优先英文、中文，其余字符自动排列。
+![HTML 音乐壁纸与同步歌词](../屏幕截图%202026-10-01%20083740.png)
 
-* 📝 **高级歌词系统**
+### 桌面歌词效果
 
-  * 支持传统 `.lrcx` 歌词。
-  * 支持逐字歌词高亮动画（卡拉 OK 风格）。
-  * 兼容多种逐字格式：
+悬浮歌词与壁纸歌词可以分别启用，适合边工作边听歌。壁纸歌词支持横排和竖排，可以根据桌面背景选择位置与样式。
 
-    * `[00:37.040]<00:37.04>歌词`
-    * `[00:00.00]对 [00:00.36]但 [00:00.90]我`
-  * 无歌词时自动显示 “暂无歌词”。
+![桌面悬浮歌词与竖排壁纸歌词](../屏幕截图%202026-10-01%20083846.png)
 
-* 🎨 **现代化视觉设计**
+## ✨ 主要功能
 
-  * 无边框窗口设计。
-  * 半透明亚克力 / 毛玻璃背景效果。
-  * 动态模糊背景（基于当前歌曲封面生成）。
-  * 自定义 CSS 绘制播放器按钮与进度条。
-  * 大尺寸歌词阴影与柔和发光效果，提高可读性。
+### 本地音乐播放
 
-* 💿 **专辑封面支持**
+- 递归扫描音乐目录，读取子文件夹中的音频文件。
+- 支持拖入本地音乐文件或文件夹。
+- 提供播放、暂停、上一曲、下一曲、进度拖动和音量设置。
+- 支持顺序播放、单曲循环和乱序播放。
+- 记忆上次播放的歌曲、进度、歌单和播放模式，方便下次继续聆听。
 
-  * 自动读取音频文件内嵌封面。
-  * 背景可自动使用当前歌曲封面生成模糊氛围图。
-  * 无封面时自动显示默认图片。
+扫描识别的文件扩展名包括：`MP3`、`FLAC`、`WAV`、`OGG`、`AAC`、`M4A`、`WMA`、`OPUS`、`APE`。实际能否播放取决于 Qt Multimedia 后端和对应解码支持。
 
-* ⏯️ **播放控制**
+### 歌单与收藏
 
-  * 播放 / 暂停 / 上一曲 / 下一曲。
-  * 进度拖动与音量调节。
-  * 自动播放下一首歌曲。
-  * 单实例运行检测，避免重复打开播放器。
+- 在“全部音乐”、收藏列表和自建歌单之间切换。
+- 创建、重命名和删除自定义歌单。
+- 点击爱心收藏歌曲，将常听的音乐集中管理。
+- 将歌曲加入或移出指定歌单，在自定义歌单中拖动调整顺序。
 
-* 💾 **播放记忆功能**
+### 同步歌词
 
-  * 自动保存上次播放歌曲。
-  * 自动记录播放进度与音量。
-  * 下次启动后可继续上次播放位置。
+- 读取 `.lrc` 和 `.lrcx` 歌词文件。
+- 支持带字符时间信息的逐字高亮，以及歌词译文。
+- 可单独设置歌词目录，自动匹配当前歌曲的歌词文件。
+- 点击歌曲右侧的编辑按钮，在记事本中打开歌词；没有匹配文件时创建歌词文件。
 
-* ⚡ **细节优化与更新**
+### 三种桌面展示方式
 
-  * Marquee 滚动长标题。
-  * 平滑动画与透明渐变。
-  * UTF-8 多语言歌词兼容（支持中文 / 日文 / 梵文等）。
-  * 可以对桌面歌词颜色进行修改，在设置界面新增修改歌词颜色功能
-  * 播放界面可以强制置顶，添加钉子功能。
-  * 新增最小化到托盘功能，可在设置界面打开或关闭。
-  * 新增当鼠标处于歌词上方自动隐藏歌词功能，可在设置界面打开，当开启时，鼠标会穿过歌词，因此拖拽歌词将不再可用。
-  * 新增记忆歌词位置功能，当下次打开时，无需重新拖拽歌词到适当位置。
-  * 新增添加可以改变桌面歌词大小的功能。
-  * 新增设置创建一个小控制窗，这个窗口将永远处于最上层避免被覆盖，并且可以修改其透明度。
-  * 新增添加歌词编辑功能，在主界面最右侧✏按钮可编辑歌词，没有歌词文件时将创建。
-  * 新增创建歌单工具，你可以建立自己的播放歌单。
-  * 新增桌面嵌入式壁纸歌词功能。
-  * 高 DPI 显示优化。
+| 展示方式 | 功能与自定义选项 |
+| --- | --- |
+| 桌面悬浮歌词 | 调整字体、字号、已唱与未唱颜色；拖动定位并记忆位置；可启用鼠标悬停自动隐藏 |
+| 嵌入式壁纸歌词 | 将歌词嵌入桌面背景；支持横排、竖排、位置选择、颜色、透明度和字号设置；可附加译文或下一句歌词 |
+| HTML 音乐壁纸 | 使用本地 HTML 页面作为桌面背景，接收封面、歌曲信息、歌词时间轴与播放状态，自定义页面布局和动画 |
 
----
+悬浮歌词开启“鼠标悬停时自动隐藏”后，无法通过鼠标拖动调整位置。HTML 壁纸位于桌面图标下方，桌面图标和任务栏可以照常使用。
 
-## 📸 界面展示 (Screenshots)
+### 封面与日常体验
 
-| 主播放界面 | 设置界面 | 桌面工具 |
-| :---: | :---: | :---: |
-| <img width="1436" height="1059" alt="屏幕截图 2026-05-25 204412" src="https://github.com/user-attachments/assets/c485933e-efbc-4b97-aa8a-87ca12b52ed0" /> | <img width="1148" height="1231" alt="屏幕截图 2026-05-25 204649" src="https://github.com/user-attachments/assets/39b8b580-2e71-4208-9dbe-bb7f0b5c5f15" /> | <img width="2558" height="1534" alt="屏幕截图 2026-05-25 204614" src="https://github.com/user-attachments/assets/28cd2268-b2cb-40e6-9c8b-7b2f6d3c8aae" /> |
+- 读取歌曲内嵌封面，并生成播放器的模糊背景。
+- 为 MP3 文件添加 JPG、JPEG 或 PNG 封面，写入音频文件的 ID3 标签。
+- 主窗口支持置顶，长歌名自动滚动显示。
+- 提供置顶小控制窗，可调整透明度。
+- 可开启最小化到系统托盘，通过托盘菜单控制播放。
+- 单实例检测，避免重复启动播放器。
 
----
+## 🚀 使用方法
 
-## 🛠️ 技术栈 (Tech Stack)
+1. 启动播放器，点击右上方的设置按钮。
+2. 选择本地音乐目录，程序会递归扫描并生成列表。
+3. 按需选择独立的歌词目录；留空时使用歌曲所在目录。
+4. 双击列表中的歌曲开始播放，通过播放模式按钮切换顺序、单曲或乱序。
+5. 在设置中启用悬浮歌词、壁纸歌词、小控制窗或 HTML 桌面背景，并调整显示样式。
 
-* **编程语言**：C++
-* **GUI 框架**：Qt Widgets
-* **音频模块**：Qt Multimedia
-* **构建工具**：qmake
-* **标准支持**：C++17
+### 歌词文件命名
 
----
-
-## 🚀 快速开始 (Getting Started)
-
-### 直接下载
-
-* 在 Release 页面下载对应平台的可执行文件并运行。
-
-### 手动编译
-
-#### 环境依赖
-
-* Qt 5.15+ 或 Qt 6.x
-* C++17 编译器（MSVC / MinGW / GCC）
-* Qt Multimedia 模块
-
-#### 编译方法
-
-```bash
-qmake
-make
-```
-
-或直接使用 Qt Creator 打开 `.pro` 文件编译运行。
-
----
-
-## 💡 使用指南 (Usage)
-
-### 添加音乐
-
-* 在设置中选择本地音乐目录。
-* 软件会自动扫描目录中的音频文件。
-
-### 歌词支持
-
-将歌词文件与歌曲放置在同一目录，也可分别置于不同目录：
+以 `song.mp3` 为例，播放器支持以下歌词文件名，任选一种即可：
 
 ```text
-song.mp3
+song.lrc
+song.lrcx
+song.mp3 - .lrc
 song.mp3 - .lrcx
 ```
 
-播放器会自动匹配歌词。
+播放器优先在设置的歌词目录中查找，然后查找歌曲所在目录。歌词文件使用 **UTF-8** 编码，时间戳应包含小数部分，例如 `[00:01.000]`。
 
-### 播放控制
+普通按句歌词示例：
 
-* 空格键：播放 / 暂停
-* 鼠标拖动：调整进度
-* 点击按钮：切换歌曲
-
-### 个性化
-
-* 支持修改播放器主题样式。
-* 支持自定义背景与透明度。
-* 可调整歌词字体与阴影效果。
-
----
-
-## 🔧 支持的音频格式 (Supported Formats)
-
-* MP3
-* FLAC
-* WAV
-* OGG
-* AAC
-* M4A
-
-（具体取决于 Qt Multimedia 后端支持）
-
----
-
-## 📄 许可证 (License)
-* 使用Qt开发，遵循LGPL v3许可。
-* 并遵循本项目采用 MIT License 协议。
+```text
+[00:01.000]第一句歌词
+[00:04.500]第二句歌词
 ```
-MIT 许可证
-版权所有 (c) 2026 Alice-Cartelet
-特此免费授予任何获得本软件及相关文档文件（以下简称“软件”）副本的人员不受限制地处理本软件
-的权利，包括但不限于使用、复制、修改、合并、发布、分发、再许可和/或出售本软件副本的权利，
-并允许向其提供本软件的人员这样做，但须符合以下条件：
-上述版权声明和本许可声明应包含在本软件的所有副本或实质性部分中。
-本软件按“原样”提供，不提供任何形式的明示或暗示的保证，包括但不限于对适销性、特定用途适用
-性和非侵权性的保证。在任何情况下，作者或版权持有人均不对因本软件或本软件的使用或其他交易
-而产生、引起或与之相关的任何索赔、损害或其他责任负责，无论是在合同诉讼、侵权行为还是其他
-方面。
-MIT License
-Copyright (c) 2026 Alice-Cartelet
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+
+交错时间戳的逐字歌词示例：
+
+```text
+[00:01.000]你[00:01.500]好[00:02.000]世[00:02.500]界[00:03.000]
 ```
+
+### 键盘操作
+
+以下按键在播放器主窗口接收键盘输入时生效：
+
+| 按键 | 操作 |
+| --- | --- |
+| `Space` | 播放 / 暂停 |
+| `←` | 后退 5 秒 |
+| `→` | 前进 5 秒 |
+| `N` | 下一曲 |
+| `P` | 上一曲 |
+
+## 🌄 自定义 HTML 音乐壁纸
+
+在“设置 → HTML 桌面背景”中选择本地 `.html` 或 `.htm` 文件，勾选“使用 HTML 作为桌面背景”，点击“确定”即可启用。项目附带 [music-wallpaper.html](music-wallpaper.html) 示例页面，可在此基础上修改背景、配色、布局与动画。
+
+播放器通过 WebView2 向页面发送两类消息：
+
+- `musicplayer.track`：歌名、艺术家、专辑、封面和完整歌词时间轴。
+- `musicplayer.playback`：播放位置、时长、播放状态和当前歌词高亮信息。
+
+页面也可发送 `musicplayer.requestState` 请求当前快照，便于刷新页面后恢复展示。切歌、暂停和进度跳转时，页面可以根据收到的数据同步显示。
+
+完整接口结构、接入示例和逐字动画说明见 [HTML 壁纸开发文档](HTML-WALLPAPER.md)，也可在播放器设置中点击“歌词接口文档”阅读。
+
+使用 HTML 背景需要 **Microsoft Edge WebView2 Runtime**，以及播放器旁边的 `WebView2Loader.dll`。关闭 HTML 背景或退出播放器后恢复原有系统壁纸；桌面嵌入效果取决于 Windows Explorer 提供的背景宿主。
+
+## 🛠️ 技术与构建
+
+| 项目 | 使用技术 |
+| --- | --- |
+| 编程语言 | C++17 |
+| 界面 | Qt 6 Widgets |
+| 音频播放 | Qt Multimedia、QMediaPlayer、QAudioOutput |
+| 设置保存 | QSettings |
+| 桌面集成 | Windows API、Explorer 背景窗口 |
+| HTML 背景 | Microsoft Edge WebView2 |
+| 构建工具 | qmake |
+
+当前项目的构建文件使用 **Qt 6.11.0 / MinGW x64** 工具链。项目包含 Windows API 调用，建议在 Windows 环境下构建。
+
+### 使用 Qt Creator
+
+1. 安装 Qt 6，并准备包含 Qt Multimedia 的 MinGW x64 构建套件。
+2. 在 Qt Creator 中打开 [MusicPlayer.pro](MusicPlayer.pro)。
+3. 选择相应构建套件，构建并运行。
+
+### 使用命令行
+
+在配置好 Qt 与 MinGW 的终端中，进入本目录后执行：
+
+```powershell
+qmake MusicPlayer.pro
+mingw32-make
+```
+
+qmake 构建配置会在链接后复制 `WebView2Loader.dll`、WebView2 许可证与声明文件、HTML 接口文档及示例页面到输出目录。
+
+分发运行目录时还需部署 Qt 运行依赖。示例壁纸引用本目录的 `1.jpg`，请将它一并复制到 HTML 所在目录；自定义页面引用的 CSS、JavaScript、图片和字体也需保留相对目录结构。
+
+## 📁 主要文件
+
+| 文件 | 职责 |
+| --- | --- |
+| `main.cpp` | 应用启动与单实例检测 |
+| `mainwindow.cpp` / `mainwindow.h` | 主界面、播放控制和歌曲数据同步 |
+| `playlist.cpp` / `playlistmanager.cpp` | 播放列表、歌单与收藏管理 |
+| `lrcxparser.cpp` / `lyricsoverlay.cpp` | 歌词解析和桌面悬浮歌词 |
+| `desktopwallpaper.cpp` / `positionpicker.cpp` | 壁纸歌词与桌面位置选择 |
+| `htmlwallpaper.cpp` / `musicwallpaperdata.cpp` | WebView2 桌面背景与歌词、封面消息接口 |
+| `music-wallpaper.html` / `1.jpg` | HTML 音乐壁纸示例及背景图片 |
+| `miniControlWindow.cpp` | 小控制窗 |
+| `settingsdialog.cpp` | 设置界面与个性化选项 |
+| `id3v2helper.cpp` | MP3 内嵌封面的读取与写入 |
+| `HTML-WALLPAPER.md` | HTML 壁纸接口开发文档 |
+| `third_party/webview2/` | WebView2 SDK 头文件、加载器与相关声明文件 |
