@@ -97,6 +97,8 @@ bool LrcxParser::parseInlineKaraoke(const QString &raw, LrcLine &line)
     while (mit.hasNext()) matches.append(mit.next());
 
     if (matches.size() < 2) return false; // need at least 2 tags to be karaoke
+    // A line with only start and end tags is ordinary timed LRC and may be a translation.
+    if (matches.size() == 2 && matches.last().capturedEnd() == raw.size()) return false;
 
     // The first tag is the line start; after it comes: char, [ts], char, [ts], ...
     // Check that there is non-timestamp content interspersed between the tags.

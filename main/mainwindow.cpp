@@ -23,9 +23,6 @@
 #include <QGraphicsBlurEffect>
 #include <QGraphicsScene>
 #include <QGraphicsPixmapItem>
-#include <QProcess>
-#include <QTextStream>
-#include <QStringConverter>
 #include <QVariantAnimation>
 #include <QEasingCurve>
 #include <QInputDialog>
@@ -33,6 +30,7 @@
 #include <QCursor>
 #include <QFileDialog>
 #include "id3v2helper.h"
+#include "lyricseditdialog.h"
 #include "version.h"
 #include <QFontDatabase>
 #include "desktopwallpaper.h"
@@ -2285,23 +2283,18 @@ QString MainWindow::formatTime(qint64 ms) const
 void MainWindow::editLyricsFile(int row)
 {
     if (row < 0 || row >= m_playlist->count()) return;
-    TrackItem t = m_playlist->track(row);
-    QString lyricPath = findLyricFile(t.filePath);
-    if (lyricPath.isEmpty())
-    {
-        QFileInfo fi(t.filePath);
-        QDir dir(!m_lyricsDir.isEmpty() ? m_lyricsDir : fi.absolutePath());
-        lyricPath = dir.filePath(fi.fileName() + " - .lrcx");
-        QFile file(lyricPath);
-        if (file.open(QIODevice::WriteOnly))
-        {
-            QTextStream out(&file);
-            out.setEncoding(QStringConverter::Utf8);
-            out << "[00:00.00]\n";
-            file.close();
-        }
+    const TrackItem track = m_playlist->track(row);
+    const QString lyricPath = findLyricFile(track.filePath);
+    const QFileInfo audioFile(track.filePath);
+    const QDir dir(!m_lyricsDir.isEmpty() ? m_lyricsDir : audioFile.absolutePath());
+    const QString newLyricPath = dir.filePath(audioFile.fileName() + " - .lrc");
+    LyricsEditDialog dialog(track, lyricPath, newLyricPath, this);
+    dialog.exec();
+    if (dialog.saved() && row == m_currentIndex) {
+        m_lyricsOverlay->loadLyrics(findLyricFile(track.filePath));
+        syncHtmlWallpaperTrack();
+        syncHtmlWallpaperPlayback();
     }
-    QProcess::startDetached("notepad.exe", QStringList() << lyricPath);
 }
 void MainWindow::onAddCoverImage()
 {

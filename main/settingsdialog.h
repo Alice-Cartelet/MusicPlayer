@@ -15,6 +15,7 @@ class SettingsDialog : public QDialog
 {
     Q_OBJECT
 public: explicit SettingsDialog(QWidget *parent=nullptr);
+    void reject() override;
     QString musicDir() const;
     QString lyricsDir() const;
     bool showLyrics() const;
@@ -78,6 +79,7 @@ signals: void musicDirChanged( const QString &dir);
     void wallpaperExtraLyricsModeChanged(WallpaperExtraLyricsMode mode);
     void wallpaperMaxHeightPercentChanged(int pct);
 private: void applyStyle();
+    void loadSettings();
     QCheckBox *m_chkHtmlWallpaper = nullptr;
     QLineEdit *m_edtHtmlWallpaper = nullptr;
     void updateSwatch( QLabel *swatch, const QString &hex);
