@@ -318,9 +318,9 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
     auto *htmlHint = new QLabel("网页铺满桌面背景，桌面图标和任务栏照常使用。关闭后恢复系统壁纸。");
     htmlHint->setWordWrap(true);
     htmlForm->addRow("", htmlHint);
-    auto *htmlDocs = new QPushButton("歌词接口文档");
+    auto *htmlDocs = new QPushButton("HTML 壁纸接口文档");
     htmlDocs->setObjectName("htmlWallpaperDocsBtn");
-    htmlDocs->setToolTip("查看 HTML 歌词与封面接口的 Markdown 开发文档");
+    htmlDocs->setToolTip("查看 HTML 歌词、封面与鼓点接口的 Markdown 开发文档");
     auto *docsRow = new QHBoxLayout;
     docsRow->addWidget(htmlDocs);
     docsRow->addStretch();
@@ -331,13 +331,13 @@ SettingsDialog::SettingsDialog(QWidget *parent): QDialog(parent)
         if (!document.open(QIODevice::ReadOnly)) {
             document.setFileName(":/docs/HTML-WALLPAPER.md");
             if (!document.open(QIODevice::ReadOnly)) {
-                QMessageBox::warning(this, "歌词接口文档", "无法读取 HTML-WALLPAPER.md 开发文档。");
+                QMessageBox::warning(this, "HTML 壁纸接口文档", "无法读取 HTML-WALLPAPER.md 开发文档。");
                 return;
             }
         }
         auto *viewer = new QDialog(this);
         viewer->setAttribute(Qt::WA_DeleteOnClose);
-        viewer->setWindowTitle("HTML 歌词与封面接口 · HTML-WALLPAPER.md");
+        viewer->setWindowTitle("HTML 歌词、封面与鼓点接口 · HTML-WALLPAPER.md");
         viewer->setWindowModality(Qt::WindowModal);
         viewer->resize(880, 680);
         viewer->setMinimumSize(600, 420);

@@ -2,6 +2,8 @@
 #include <QMainWindow>
 #include <QMediaPlayer>
 #include <QAudioOutput>
+#include <QAudioBufferOutput>
+#include <QElapsedTimer>
 #include <QListView>
 #include <QLabel>
 #include <QSlider>
@@ -21,6 +23,7 @@
 #include "minicontrolwindow.h"
 #include "desktopwallpaper.h"
 #include "htmlwallpaper.h"
+#include "audiobeatdetector.h"
 class MarqueeLabel;
 class CoverLabel;
 class TrackDelegate;
@@ -74,8 +77,14 @@ private: void setupPlayer();
     void initWallpaperLyrics();
     void syncHtmlWallpaperTrack();
     void syncHtmlWallpaperPlayback();
+    void updateHtmlWallpaperAudio(const QAudioBuffer &buffer);
+    void resetHtmlWallpaperAudio();
 private: QMediaPlayer *m_player = nullptr;
     QAudioOutput *m_audio = nullptr;
+    QAudioBufferOutput *m_audioBufferOutput = nullptr;
+    AudioBeatDetector m_audioBeatDetector;
+    QElapsedTimer m_lastAudioMessage;
+    float m_pendingBeatStrength = 0;
     Playlist *m_playlist = nullptr;
     int m_currentIndex = -1;
     bool m_seeking = false;

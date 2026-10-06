@@ -1,4 +1,5 @@
 #include <QApplication>
+#include <QFontDatabase>
 #include <QIcon>
 #include <QMessageBox>
 #include <QLocalServer>
@@ -12,6 +13,14 @@ int main(int argc, char *argv[])
     app.setApplicationName("本地音乐播放器");
     app.setOrganizationName("MusicPlayer");
     app.setApplicationVersion(APP_VERSION);
+    const int devanagariFontId = QFontDatabase::addApplicationFont(
+        QStringLiteral(":/fonts/NotoSansDevanagari.ttf"));
+    const QStringList devanagariFamilies =
+        QFontDatabase::applicationFontFamilies(devanagariFontId);
+    if (!devanagariFamilies.isEmpty()) {
+        QFontDatabase::addApplicationFallbackFontFamily(
+            QChar::Script_Devanagari, devanagariFamilies.first());
+    }
     const QString serverName = "LocalMusicPlayer_Unique_Instance";
     QLocalSocket socket;
     socket.connectToServer(serverName);

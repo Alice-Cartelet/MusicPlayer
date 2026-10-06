@@ -29,6 +29,7 @@
 #include <QMessageBox>
 #include <QCursor>
 #include <QFileDialog>
+#include <algorithm>
 #include "id3v2helper.h"
 #include "lyricseditdialog.h"
 #include "version.h"
@@ -584,6 +585,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     m_wallpaperLyrics = new DesktopWallpaperLyrics(this);
     m_settingsDlg = new SettingsDialog(this);
     m_htmlWallpaper = new HtmlWallpaper(this);
+    connect(m_htmlWallpaper, &HtmlWallpaper::enabledChanged, this,
+            [this] { resetHtmlWallpaperAudio(); });
     connect(m_player, &QMediaPlayer::metaDataChanged, this, &MainWindow::syncHtmlWallpaperTrack);
     connect(m_settingsDlg, &SettingsDialog::htmlWallpaperChanged, m_htmlWallpaper, &HtmlWallpaper::setWallpaper);
     connect(m_htmlWallpaper, &HtmlWallpaper::errorOccurred, this, [this](const QString &message) {
@@ -795,10 +798,14 @@ void MainWindow::setupPlayer()
 {
     m_player = new QMediaPlayer(this);
     m_audio = new QAudioOutput(this);
+    m_audioBufferOutput = new QAudioBufferOutput(this);
     m_playlist = new Playlist(this);
     m_playlist->setPlaylistManager( m_plManager);
     m_playlist->setSortable( false);
     m_player->setAudioOutput( m_audio);
+    m_player->setAudioBufferOutput(m_audioBufferOutput);
+    connect(m_audioBufferOutput, &QAudioBufferOutput::audioBufferReceived,
+            this, &MainWindow::updateHtmlWallpaperAudio);
     m_audio->setVolume(0.7f);
     connect(m_player, &QMediaPlayer::mediaStatusChanged, this, &MainWindow::onMediaStatusChanged);
     connect(m_player, &QMediaPlayer::playbackStateChanged, this, &MainWindow::onPlaybackStateChanged);
@@ -1868,6 +1875,7 @@ void MainWindow::onMediaStatusChanged(QMediaPlayer::MediaStatus s)
 }
 void MainWindow::onPlaybackStateChanged(QMediaPlayer::PlaybackState s)
 {
+    if (s != QMediaPlayer::PlayingState) resetHtmlWallpaperAudio();
     syncHtmlWallpaperPlayback();
     m_miniControl->setPlaying(s == QMediaPlayer::PlayingState);
     static_cast<IconButton*>(m_btnPlayPause)->setIcon( s == QMediaPlayer::PlayingState ? IconButton::Pause : IconButton::Play );
@@ -2242,6 +2250,7 @@ void MainWindow::updateTitleBarTitle(const QString &title)
 void MainWindow::playTrack(int index)
 {
     if (index < 0 || index >= m_playlist->count()) return;
+    resetHtmlWallpaperAudio();
     m_currentIndex = index;
     TrackItem t = m_playlist->track(index);
     m_player->setSource(QUrl::fromLocalFile(t.filePath));
@@ -2384,4 +2393,33 @@ void MainWindow::syncHtmlWallpaperPlayback()
     m_htmlWallpaper->updatePlayback(QJsonObject{{"positionMs", position}, {"durationMs", duration},
         {"state", stateName}, {"lyric", MusicWallpaperData::lyricAt(
             hasTrack ? m_lyricsOverlay->lyricParser() : empty, position, duration)}});
+}
+
+void MainWindow::updateHtmlWallpaperAudio(const QAudioBuffer &buffer)
+{
+    if (!m_htmlWallpaper || !m_htmlWallpaper->isEnabled() ||
+        m_player->playbackState() != QMediaPlayer::PlayingState) return;
+    const auto analysis = m_audioBeatDetector.consume(buffer);
+    if (analysis.beat)
+        m_pendingBeatStrength = std::max(m_pendingBeatStrength, analysis.strength);
+    if (m_lastAudioMessage.isValid() && m_lastAudioMessage.elapsed() < 33) return;
+    m_lastAudioMessage.restart();
+    m_htmlWallpaper->updateAudio(QJsonObject{
+        {"positionMs", m_player->position()},
+        {"level", analysis.level}, {"bass", analysis.bass},
+        {"beat", m_pendingBeatStrength > 0}, {"strength", m_pendingBeatStrength}
+    });
+    m_pendingBeatStrength = 0;
+}
+
+void MainWindow::resetHtmlWallpaperAudio()
+{
+    m_audioBeatDetector.reset();
+    m_lastAudioMessage.invalidate();
+    m_pendingBeatStrength = 0;
+    if (m_htmlWallpaper)
+        m_htmlWallpaper->updateAudio(QJsonObject{
+            {"positionMs", m_player->position()}, {"level", 0}, {"bass", 0},
+            {"beat", false}, {"strength", 0}
+        });
 }

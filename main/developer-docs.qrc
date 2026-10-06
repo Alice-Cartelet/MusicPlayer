@@ -2,4 +2,8 @@
   <qresource prefix="/docs">
     <file alias="HTML-WALLPAPER.md">HTML-WALLPAPER.md</file>
   </qresource>
+  <qresource prefix="/fonts">
+    <file alias="NotoSansDevanagari.ttf">third_party/NotoSansDevanagari.ttf</file>
+    <file alias="NotoSansDevanagari-OFL.txt">third_party/NotoSansDevanagari-OFL.txt</file>
+  </qresource>
 </RCC>

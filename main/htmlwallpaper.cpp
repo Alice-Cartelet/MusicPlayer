@@ -249,6 +249,10 @@ public:
     {
         postData("musicplayer.track", "track", track);
         postData("musicplayer.playback", "playback", playback);
+        QJsonObject snapshot = audio;
+        snapshot["beat"] = false; // Do not replay an old onset.
+        snapshot["strength"] = 0;
+        postData("musicplayer.audio", "audio", snapshot);
     }
 #ifdef Q_OS_WIN
     void createController(ICoreWebView2Environment *environment, quint64 request)
@@ -368,6 +372,8 @@ public:
     bool pageLoaded = false;
     QJsonObject track;
     QJsonObject playback;
+    QJsonObject audio{{"positionMs", 0}, {"level", 0}, {"bass", 0},
+                      {"beat", false}, {"strength", 0}};
     quint64 generation = 0;
 };
 
@@ -389,6 +395,12 @@ void HtmlWallpaper::updatePlayback(const QJsonObject &playback)
     if (d->playback == playback) return;
     d->playback = playback;
     d->postData("musicplayer.playback", "playback", playback);
+}
+
+void HtmlWallpaper::updateAudio(const QJsonObject &audio)
+{
+    d->audio = audio;
+    d->postData("musicplayer.audio", "audio", audio);
 }
 
 void HtmlWallpaper::setWallpaper(const QString &filePath, bool enabled)

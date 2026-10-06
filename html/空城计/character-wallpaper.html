@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Q弹人物 · 音乐壁纸</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body { background: #292722; color: #fff6e6; font-family: "Microsoft YaHei", "Segoe UI", sans-serif; }
+    [hidden] { display: none !important; }
+    .background {
+      position: absolute; inset: 0;
+      background: url("bg.png") center center / cover no-repeat;
+    }
+    .cast { position: absolute; inset: 0; transform-origin: 50% 78%; }
+    .puppet { position: absolute; transform: translate(-50%, -100%); }
+    .puppet .deform {
+      width: 100%; height: 100%; transform-origin: 50% 100%;
+      will-change: transform; filter: drop-shadow(0 5px 3px #10261538);
+    }
+    .puppet img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
+    .shadow {
+      position: absolute; left: 8%; right: 8%; bottom: -1.2%; height: 5%;
+      border-radius: 50%; background: #1731143b; filter: blur(3px);
+      transform-origin: center;
+    }
+    .song { position: absolute; top: 4.5%; left: 5.2%; width: 33%; pointer-events: none; }
+    .title {
+      margin: 0; font-size: clamp(26px, 2.6vw, 56px); font-weight: 600; line-height: 1.2;
+      letter-spacing: .025em; text-shadow: 0 2px 3px #000b, 0 4px 12px #0008;
+      overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .artist {
+      margin: .4em 0 0 .08em; font-size: clamp(15px, 1.1vw, 25px); line-height: 1.3;
+      color: #eee1cb; text-shadow: 0 2px 4px #000b;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .lyrics { position: absolute; left: 10%; right: 10%; bottom: 3.5%; text-align: center; pointer-events: none; }
+    .current {
+      min-height: 1.35em; margin: 0; font-size: clamp(23px, 1.9vw, 44px); line-height: 1.35; font-weight: 500;
+      filter: drop-shadow(0 2px 2px #000d) drop-shadow(0 4px 6px #0009);
+      overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .current span { color: transparent; background-clip: text; -webkit-background-clip: text; text-shadow: none; }
+    .translation {
+      min-height: 1.3em; margin-top: .25em; font-size: clamp(13px, 1vw, 23px); line-height: 1.3;
+      color: #eee1cb; text-shadow: 0 2px 4px #000;
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    }
+    .translation:empty { display: none; }
+    .asset-hint {
+      position: absolute; left: 50%; top: 48%; transform: translate(-50%, -50%);
+      padding: 18px 24px; max-width: 85%; border-radius: 12px; background: #132d497a;
+      text-align: center; line-height: 1.8; font-size: clamp(16px, 1.4vw, 24px);
+      backdrop-filter: blur(8px); text-shadow: 0 1px 2px #0008;
+    }
+    .asset-hint small { display: block; font-size: .78em; opacity: .85; }
+    .preview {
+      position: absolute; right: 24px; bottom: 20px; padding: 9px 17px;
+      color: #fff; border: 1px solid #fff7; border-radius: 30px; background: #123d4b80;
+      font: 15px "Microsoft YaHei", sans-serif; cursor: pointer;
+    }
+    @media (max-aspect-ratio: 1/1) {
+      .song { top: 4%; left: 6%; width: 88%; }
+      .title { font-size: clamp(24px, 6vw, 40px); }
+      .artist { font-size: clamp(14px, 3.3vw, 22px); }
+      .current { font-size: clamp(20px, 4.5vw, 32px); }
+      .translation { font-size: clamp(12px, 2.8vw, 18px); }
+      .lyrics { left: 5%; right: 5%; bottom: 3.5%; }
+    }
+    @media (prefers-reduced-motion: reduce) { .puppet .deform { will-change: auto; } }
+  </style>
+</head>
+<body>
+  <div class="background" aria-hidden="true"></div>
+  <div class="cast" id="cast" aria-hidden="true"></div>
+  <header class="song">
+    <h1 class="title" id="title">等待播放</h1>
+    <p class="artist" id="artist"></p>
+  </header>
+  <div class="asset-hint" id="asset-hint" hidden>
+    将人物图片放到此 HTML 所在目录
+    <small>rw1.png 为中央大人物，rw2.png — rw10.png 排在后方；推荐透明 PNG / WebP</small>
+    <small id="asset-location"></small>
+  </div>
+  <section class="lyrics" aria-label="当前歌词">
+    <p class="current" id="current"></p>
+    <div class="translation" id="translation"></div>
+  </section>
+  <button class="preview" id="preview" hidden type="button">预览弹跳</button>
+  <script>
+    (() => {
+      'use strict';
+      // 位置以屏幕比例表示；ground 是图片底边。大人物在前，其他人物排在后方。
+      const OPTIONS = Object.freeze({
+        background: 'bg.png', amplitude: 1.15, tilt: 0, previewBpm: 128,
+        heroX: .52, heroGround: .835, heroHeight: .26,
+        rowStart: .29, rowEnd: .75, rowGround: .755, companionHeight: .11
+      });
+      const EXTENSIONS = ['png', 'webp', 'gif', 'jpg', 'jpeg', 'avif', 'svg', ''];
+      const $ = id => document.getElementById(id);
+      const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
+      const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+      const text = value => typeof value === 'string' ? value : '';
+      const bridge = window.chrome?.webview;
+      const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+      const puppets = new Map(), probing = new Set();
+      let track = { title: '', lyrics: [] };
+      let playback = { positionMs: 0, durationMs: 0, state: 'stopped', lyric: {} };
+      let playbackAt = performance.now(), audioAt = 0, bass = 0, smoothedBass = 0;
+      let beatAt = -Infinity, beatStrength = 0, beatPeriod = 480, previousBeatAt = -Infinity;
+      let intervals = [], frameAt = performance.now(), renderedLine = '', lyricSpans = [];
+      let preview = false, previewAt = 0, lastPreviewBeat = -1;
+      const poses = [
+        [0, .76, 1.10], [.09, .54, 1.28], [.28, 1.27, .83],
+        [.57, .66, 1.18], [.78, .87, 1.04], [1, .76, 1.10]
+      ];
+
+      const assetDirectory = new URL('.', document.baseURI || location.href);
+      const directoryLabel = assetDirectory.protocol === 'file:'
+        ? decodeURIComponent(assetDirectory.pathname).replace(/^\/([A-Za-z]:)/, '$1').replace(/\//g, '\\')
+        : assetDirectory.href;
+      $('asset-location').textContent = '当前图片目录：' + directoryLabel;
+
+      const background = document.querySelector('.background');
+      background.style.backgroundImage = `url("${new URL(OPTIONS.background, assetDirectory).href}")`;
+      background.style.transform = `rotate(${OPTIONS.tilt}deg) scale(${OPTIONS.tilt ? 1.16 : 1})`;
+      $('cast').style.transform = `rotate(${OPTIONS.tilt}deg)`;
+
+      function poseAt(phase) {
+        if (phase <= 0 || phase >= 1) return { y: .76, x: 1.10 };
+        for (let i = 1; i < poses.length; i++) {
+          if (phase > poses[i][0]) continue;
+          const a = poses[i - 1], b = poses[i];
+          let t = (phase - a[0]) / (b[0] - a[0]);
+          t = t * t * (3 - 2 * t);
+          return { y: a[1] + (b[1] - a[1]) * t, x: a[2] + (b[2] - a[2]) * t };
+        }
+        return { y: .76, x: 1.10 };
+      }
+
+      function beat(strength, now) {
+        if (playback.state !== 'playing') return;
+        const gap = now - previousBeatAt;
+        if (gap >= 240 && gap <= 1100) {
+          intervals.push(gap);
+          if (intervals.length > 7) intervals.shift();
+          const sorted = [...intervals].sort((a, b) => a - b);
+          beatPeriod = clamp(sorted[Math.floor(sorted.length / 2)], 300, 850);
+        }
+        previousBeatAt = now;
+        beatAt = now;
+        beatStrength = clamp(Math.max(.70, Math.sqrt(clamp(strength))) * OPTIONS.amplitude, 0, 1.25);
+      }
+
+      function resetAudio() {
+        bass = 0; beatAt = -Infinity; previousBeatAt = -Infinity;
+        beatStrength = 0; intervals = []; beatPeriod = 480;
+      }
+
+      function loadImage(url) {
+        return new Promise(resolve => {
+          const image = new Image();
+          image.onload = () => resolve(image.naturalWidth > 0 ? image : null);
+          image.onerror = () => resolve(null);
+          image.src = url;
+        });
+      }
+
+      async function discoverCharacter(index) {
+        if (puppets.has(index) || probing.has(index)) return;
+        probing.add(index);
+        try {
+          for (const extension of EXTENSIONS) {
+            const name = `rw${index}${extension ? '.' + extension : ''}`;
+            const imageUrl = new URL(name, assetDirectory);
+            // Local files use their exact filename. HTTP previews avoid caching
+            // an earlier missing image when the file is added later.
+            if (imageUrl.protocol === 'http:' || imageUrl.protocol === 'https:')
+              imageUrl.searchParams.set('v', String(Date.now()));
+            const image = await loadImage(imageUrl.href);
+            if (!image) continue;
+            const element = document.createElement('div');
+            element.className = 'puppet';
+            element.dataset.character = String(index);
+            const shadow = document.createElement('div'); shadow.className = 'shadow';
+            const deform = document.createElement('div'); deform.className = 'deform';
+            image.alt = ''; image.draggable = false;
+            deform.append(image); element.append(shadow, deform); $('cast').append(element);
+            puppets.set(index, { element, deform, shadow, image, x: 1.10, y: .76 });
+            layout();
+            break;
+          }
+        } finally { probing.delete(index); }
+      }
+
+      async function discover() {
+        await Promise.all(Array.from({ length: 10 }, (_, i) => discoverCharacter(i + 1)));
+        $('asset-hint').hidden = puppets.size > 0;
+      }
+
+      function layout() {
+        const list = [...puppets.entries()].sort((a, b) => a[0] - b[0]);
+        const width = innerWidth, height = innerHeight, portrait = width / height < 1;
+        list.forEach(([index, puppet], order) => {
+          const hero = order === 0;
+          const t = list.length <= 2 ? .5 : (order - 1) / (list.length - 2);
+          const ratio = puppet.image.naturalWidth / puppet.image.naturalHeight;
+          const count = list.length - 1;
+          const start = portrait ? .14 : OPTIONS.rowStart, end = portrait ? .86 : OPTIONS.rowEnd;
+          // Allow room for the widest beat pose so a full row does not overlap itself.
+          const rowWidth = Math.min(portrait ? .08 : .052, (end - start) / Math.max(1, count - 1) / 1.4);
+          const size = hero ? Math.min(height * OPTIONS.heroHeight, width * (portrait ? .48 : .28) / ratio)
+                            : Math.min(height * OPTIONS.companionHeight, width * rowWidth / ratio);
+          const x = hero ? OPTIONS.heroX : start + (end - start) * t;
+          const ground = hero ? OPTIONS.heroGround : OPTIONS.rowGround + .012 * Math.abs(t - .5) * 2;
+          Object.assign(puppet.element.style, {
+            left: `${width * x}px`, top: `${height * ground}px`,
+            height: `${size}px`, width: `${size * ratio}px`, zIndex: hero ? '20' : String(order)
+          });
+          puppet.element.dataset.hero = String(hero);
+        });
+        $('asset-hint').hidden = list.length > 0;
+      }
+
+      function setTrack(value) {
+        if (!value || typeof value !== 'object') return;
+        track = {
+          title: text(value.title), artist: text(value.artist),
+          lyrics: Array.isArray(value.lyrics) ? value.lyrics.filter(line => line && Number.isFinite(Number(line.startMs))).map(line => ({
+            startMs: Math.max(0, number(line.startMs)), text: text(line.text), translation: text(line.translation),
+            hasTiming: Boolean(line.hasTiming), chars: Array.isArray(line.chars) ? line.chars.filter(char => char && Number.isFinite(Number(char.offsetMs)) && Number.isFinite(Number(char.charIndex))).map(char => ({
+              offsetMs: Math.max(0, number(char.offsetMs)), charIndex: Math.max(0, Math.floor(number(char.charIndex)))
+            })).sort((a, b) => a.offsetMs - b.offsetMs) : []
+          })).sort((a, b) => a.startMs - b.startMs) : []
+        };
+        $('title').textContent = track.title || '等待播放';
+        $('artist').textContent = track.artist;
+        renderedLine = ''; resetAudio();
+      }
+
+      function setPlayback(value) {
+        if (!value || typeof value !== 'object') return;
+        const oldPosition = playback.positionMs;
+        playback = {
+          positionMs: Math.max(0, number(value.positionMs)), durationMs: Math.max(0, number(value.durationMs)),
+          state: ['playing', 'paused', 'stopped'].includes(value.state) ? value.state : 'stopped',
+          lyric: value.lyric && typeof value.lyric === 'object' ? value.lyric : {}
+        };
+        playbackAt = performance.now();
+        if (playback.state !== 'playing' || Math.abs(playback.positionMs - oldPosition) > 2500) resetAudio();
+      }
+
+      function onMessage({ data }) {
+        if (!data || data.version !== 1) return;
+        if (data.type === 'musicplayer.track') setTrack(data.track);
+        else if (data.type === 'musicplayer.playback') setPlayback(data.playback);
+        else if (data.type === 'musicplayer.audio' && data.audio) {
+          audioAt = performance.now(); bass = clamp(number(data.audio.bass));
+          if (data.audio.beat) beat(number(data.audio.strength), audioAt);
+        }
+      }
+
+      function renderLyrics(position) {
+        let low = 0, high = track.lyrics.length;
+        while (low < high) {
+          const mid = (low + high) >>> 1;
+          if (track.lyrics[mid].startMs <= position) low = mid + 1; else high = mid;
+        }
+        const index = low - 1, line = track.lyrics[index];
+        const value = line || (!track.lyrics.length ? playback.lyric : {});
+        const content = text(value.text), translation = text(value.translation);
+        const key = `${index}/${content}/${translation}`;
+        if (key !== renderedLine) {
+          renderedLine = key;
+          lyricSpans = Array.from(content, character => {
+            const span = document.createElement('span'); span.textContent = character; return span;
+          });
+          $('current').replaceChildren(...lyricSpans);
+          $('translation').textContent = translation;
+        }
+        let lit = number(value.highlightedCharacters);
+        if (line) {
+          const end = track.lyrics[index + 1]?.startMs ?? playback.durationMs;
+          const offset = position - line.startMs, chars = line.chars;
+          lit = end > line.startMs ? clamp(offset / (end - line.startMs)) * lyricSpans.length : 0;
+          if (line.hasTiming && chars.length) {
+            lit = 0;
+            for (let i = 0; i < chars.length; i++) {
+              const a = chars[i], b = chars[i + 1];
+              if (offset < a.offsetMs) break;
+              if (!b) lit = lyricSpans.length;
+              else if (b.offsetMs > a.offsetMs && offset < b.offsetMs) {
+                lit = a.charIndex + (b.charIndex - a.charIndex) * clamp((offset - a.offsetMs) / (b.offsetMs - a.offsetMs)); break;
+              } else lit = a.charIndex;
+            }
+          }
+        }
+        lyricSpans.forEach((span, i) => {
+          const progress = Math.round(clamp(lit - i) * 100);
+          if (span.dataset.progress === String(progress)) return;
+          span.dataset.progress = String(progress);
+          span.style.backgroundImage = `linear-gradient(to right, #ffe3a4 ${progress}%, #fff6e6 ${progress}%)`;
+        });
+      }
+
+      function render(now) {
+        requestAnimationFrame(render);
+        if (document.hidden) { frameAt = now; return; }
+        const dt = clamp((now - frameAt) / 1000, 0, .05); frameAt = now;
+        let position = playback.positionMs + (playback.state === 'playing' ? clamp(now - playbackAt, 0, 1500) : 0);
+        if (preview) {
+          position = now - previewAt;
+          const period = 60000 / OPTIONS.previewBpm;
+          const index = Math.floor(position / period);
+          if (index !== lastPreviewBeat) { lastPreviewBeat = index; beat(.9, now); }
+          bass = .55; audioAt = now;
+          position %= 16000;
+        }
+        if (playback.durationMs > 0) position = Math.min(position, playback.durationMs);
+        const active = playback.state === 'playing' && !reducedMotion.matches;
+        smoothedBass += ((active && now - audioAt < 350 ? bass : 0) - smoothedBass) * (1 - Math.exp(-dt * 12));
+        const phase = (now - beatAt) / beatPeriod;
+        const pose = active ? poseAt(phase) : { y: .76, x: 1.10 };
+        const strength = active && phase <= 1 ? beatStrength : 0;
+        const targetY = clamp(.76 + (pose.y - .76) * strength + smoothedBass * .045, .46, 1.43);
+        const targetX = clamp(1.10 + (pose.x - 1.10) * strength - smoothedBass * .02, .73, 1.36);
+        const settle = 1 - Math.exp(-dt * 30);
+        for (const puppet of puppets.values()) {
+          puppet.x += (targetX - puppet.x) * settle; puppet.y += (targetY - puppet.y) * settle;
+          const sway = active && phase > 0 && phase < 1 ? Math.sin(phase * Math.PI * 2) * strength * 1.6 : 0;
+          puppet.deform.style.transform = `scale(${puppet.x.toFixed(4)}, ${puppet.y.toFixed(4)}) rotate(${sway.toFixed(3)}deg)`;
+          puppet.shadow.style.transform = `scaleX(${puppet.x.toFixed(4)})`;
+        }
+        renderLyrics(position);
+      }
+
+      $('preview').addEventListener('click', () => {
+        preview = !preview; previewAt = performance.now(); lastPreviewBeat = -1;
+        $('preview').textContent = preview ? '停止预览' : '预览弹跳';
+        if (preview) {
+          setTrack({ title: 'Q弹人物', artist: '鼓点弹跳预览', lyrics: [
+            { startMs: 0, text: '跟着鼓点，一起 Q 弹', translation: '' },
+            { startMs: 8000, text: '放入 rw1 — rw10，添加你的人物', translation: '' }
+          ] });
+          setPlayback({ positionMs: 0, durationMs: 16000, state: 'playing' });
+        } else {
+          setTrack({ title: '', artist: '', lyrics: [] });
+          setPlayback({ positionMs: 0, durationMs: 0, state: 'stopped' });
+        }
+      });
+      addEventListener('resize', layout);
+      if (bridge && typeof bridge.addEventListener === 'function') {
+        bridge.addEventListener('message', onMessage);
+        bridge.postMessage('musicplayer.requestState');
+      } else {
+        $('preview').hidden = false;
+        if (new URLSearchParams(location.search).get('demo') === '1') $('preview').click();
+      }
+      discover();
+      setInterval(discover, 15000);
+      requestAnimationFrame(render);
+    })();
+  </script>
+</body>
+</html>

@@ -7,6 +7,8 @@
 #include <QDoubleSpinBox>
 #include <QFile>
 #include <QFileInfo>
+#include <QFont>
+#include <QFontDatabase>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -131,9 +133,33 @@ static QString sourceBadge(const QString &source)
     return QStringLiteral("LRCLIB");
 }
 
+static QFont multilingualFont(qreal pointSize = -1.0)
+{
+    QFont font = QFontDatabase::systemFont(QFontDatabase::GeneralFont);
+    QStringList families = font.families();
+    const QStringList fallbacks = {
+        QStringLiteral("Segoe UI"),
+        QStringLiteral("Nirmala UI"),
+        QStringLiteral("Leelawadee UI"),
+        QStringLiteral("Noto Sans Devanagari"),
+        QStringLiteral("Noto Sans"),
+        QStringLiteral("Microsoft YaHei UI"),
+        QStringLiteral("Arial Unicode MS")
+    };
+    for (const QString &family : fallbacks) {
+        if (!families.contains(family, Qt::CaseInsensitive))
+            families.append(family);
+    }
+    font.setFamilies(families);
+    if (pointSize > 0.0)
+        font.setPointSizeF(pointSize);
+    font.setStyleStrategy(QFont::PreferAntialias);
+    return font;
+}
+
 static QString normalizedName(QString value)
 {
-    value = value.toCaseFolded();
+    value = value.normalized(QString::NormalizationForm_C).toCaseFolded();
     value.remove(QRegularExpression(QStringLiteral(R"([\s\p{P}\p{S}]+)")));
     return value;
 }
@@ -242,8 +268,9 @@ LyricsEditDialog::LyricsEditDialog(const TrackItem &track,
     setWindowTitle(QStringLiteral("查找与编辑歌词 · %1").arg(track.title));
     resize(880, 560);
     setMinimumSize(720, 450);
+    setFont(multilingualFont());
     setStyleSheet(R"(
-        QDialog { background: #f5f5f9; color: #252438; font-family: "Microsoft YaHei", "Segoe UI"; }
+        QDialog { background: #f5f5f9; color: #252438; }
         QFrame#card { background: #ffffff; border: 1px solid #e5e5ee; border-radius: 10px; }
         QFrame#settings { background: #f7f6fb; border: 1px solid #ece9f3; border-radius: 8px; }
         QLabel#title { color: #262143; font-size: 17px; font-weight: 700; }
@@ -399,7 +426,7 @@ LyricsEditDialog::LyricsEditDialog(const TrackItem &track,
     m_editor = new QPlainTextEdit(editorPane);
     m_editor->setPlaceholderText(QStringLiteral("选择歌曲载入歌词，或直接在这里编辑 LRC 歌词。"));
     m_editor->setLineWrapMode(QPlainTextEdit::NoWrap);
-    QFont editorFont(QStringLiteral("Consolas"), 10);
+    QFont editorFont = multilingualFont(10.0);
     m_editor->setFont(editorFont);
     editorLayout->addWidget(m_editor, 1);
     splitter->addWidget(editorPane);
@@ -483,7 +510,7 @@ LyricsEditDialog::LyricsEditDialog(const TrackItem &track,
 
 void LyricsEditDialog::search()
 {
-    const QString keyword = m_query->text().trimmed();
+    const QString keyword = m_query->text().normalized(QString::NormalizationForm_C).trimmed();
     if (keyword.isEmpty()) {
         m_status->setText(QStringLiteral("请输入搜索关键词。"));
         return;

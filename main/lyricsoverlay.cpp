@@ -123,7 +123,8 @@ void LyricsOverlay::buildFont()
 {
     m_font.setPointSize(m_fontSize);
     m_font.setBold(true);
-   m_font.setFamilies({m_fontFamily, "Nirmala UI", "Mangal", "Microsoft YaHei", "Arial", "Segoe UI"});
+    m_font.setFamilies({m_fontFamily, "Noto Sans Devanagari", "Nirmala UI", "Mangal",
+                        "Microsoft YaHei", "Arial", "Segoe UI"});
 }
 void LyricsOverlay::loadLyrics(const QString &path)
 {
@@ -261,15 +262,9 @@ void LyricsOverlay::paintEvent(QPaintEvent *)
     float lineX0 = (width() - totalW) / 2.f;
     float baseY  = (height() + fmf.ascent() - fmf.descent()) / 2.f;
     QPainterPath fullPath;
-    {
-        float x = lineX0;
-        QStringList glyphs = splitUnicodeChars(displayText);
-        for (const QString &g : glyphs)
-        {
-            fullPath.addText(x, baseY, m_font, g);
-            x += (float)fmf.horizontalAdvance(g);
-        }
-    }
+    // Shape the complete line in one pass. Indic and Arabic scripts need
+    // neighbouring characters to form ligatures and position marks correctly.
+    fullPath.addText(lineX0, baseY, m_font, displayText);
     QRectF textBounds = fullPath.boundingRect();
     if (!textBounds.isEmpty() && textBounds.width() > 0)
     {

@@ -19,6 +19,7 @@ public:
     // Cache even while disabled/loading; replay when the selected HTML is ready.
     void updateTrack(const QJsonObject &track);
     void updatePlayback(const QJsonObject &playback);
+    void updateAudio(const QJsonObject &audio);
 
 signals:
     void ready();
